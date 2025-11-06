@@ -115,8 +115,20 @@ class EditProfileActivity : AppCompatActivity() {
                 getSharedPreferences("vasatey_prefs", MODE_PRIVATE).edit()
                     .putString("wake_word", wakeWord.lowercase())
                     .apply()
-
-                Toast.makeText(this@EditProfileActivity, "Profile updated! Wake word: \"$wakeWord\"", Toast.LENGTH_LONG).show()
+                
+                // Restart VoskWakeWordService to use the new wake word
+                try {
+                    val serviceIntent = android.content.Intent(this@EditProfileActivity, VoskWakeWordService::class.java)
+                    stopService(serviceIntent) // Stop old service
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        startService(serviceIntent) // Start with new wake word
+                    }, 500) // Wait 500ms before restarting
+                    
+                    Toast.makeText(this@EditProfileActivity, "Profile updated! Wake word changed to: \"$wakeWord\"\nService restarting...", Toast.LENGTH_LONG).show()
+                } catch (e: Exception) {
+                    Toast.makeText(this@EditProfileActivity, "Profile updated! Please restart the app to use new wake word.", Toast.LENGTH_LONG).show()
+                }
+                
                 finish()
 
             } catch (e: Exception) {

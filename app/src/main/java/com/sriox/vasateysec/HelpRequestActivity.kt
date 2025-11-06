@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
@@ -12,6 +13,8 @@ import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 import com.sriox.vasateysec.databinding.ActivityHelpRequestBinding
+import io.github.jan.supabase.gotrue.auth
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -28,7 +31,26 @@ class HelpRequestActivity : AppCompatActivity(), OnMapReadyCallback {
         super.onCreate(savedInstanceState)
         binding = ActivityHelpRequestBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
+        
+        // Check if user is logged in and setup UI
+        lifecycleScope.launch {
+            val currentUser = SupabaseClient.client.auth.currentUserOrNull()
+            if (currentUser == null) {
+                // User not logged in, redirect to login
+                Log.d("HelpRequest", "User not logged in, redirecting to login")
+                val loginIntent = Intent(this@HelpRequestActivity, LoginActivity::class.java)
+                startActivity(loginIntent)
+                finish()
+                return@launch
+            }
+            
+            // User is logged in, setup the UI
+            Log.d("HelpRequest", "User logged in, showing alert details")
+            setupUI()
+        }
+    }
+    
+    private fun setupUI() {
         // Get data from intent
         val fullName = intent.getStringExtra("fullName") ?: "Unknown"
         val email = intent.getStringExtra("email") ?: "Unknown"
@@ -106,6 +128,14 @@ class HelpRequestActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
             }
         }
+    }
+    
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // Update the intent and reload UI when notification is clicked again
+        setIntent(intent)
+        Log.d("HelpRequest", "onNewIntent called, reloading UI")
+        setupUI()
     }
 
     override fun onMapReady(map: GoogleMap) {

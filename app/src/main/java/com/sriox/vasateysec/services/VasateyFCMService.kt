@@ -55,16 +55,25 @@ class VasateyFCMService : FirebaseMessagingService() {
         val fullName = data["fullName"] ?: ""
         val email = data["email"] ?: ""
         val phoneNumber = data["phoneNumber"] ?: ""
-        val latitudeStr = data["latitude"] ?: ""
-        val longitudeStr = data["longitude"] ?: ""
+        // Backend sends 'lastKnownLatitude' and 'lastKnownLongitude'
+        val latitudeStr = data["lastKnownLatitude"] ?: data["latitude"] ?: ""
+        val longitudeStr = data["lastKnownLongitude"] ?: data["longitude"] ?: ""
         val alertType = data["alertType"] ?: "emergency"
         val timestamp = data["timestamp"] ?: ""
+        val isSelfAlert = data["isSelfAlert"]?.toBoolean() ?: false
         
-        Log.d(TAG, "Notification data: lat=$latitudeStr, lon=$longitudeStr")
+        Log.d(TAG, "Notification data: lat=$latitudeStr, lon=$longitudeStr, isSelf=$isSelfAlert")
+
+        // Don't show notification for self alerts (user already knows they triggered it)
+        if (isSelfAlert) {
+            Log.d(TAG, "Skipping notification display for self alert")
+            return
+        }
 
         // Create intent to open HelpRequestActivity
         val intent = Intent(this, HelpRequestActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            // Use SINGLE_TOP to avoid clearing the activity stack
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra("fullName", fullName)
             putExtra("email", email)
             putExtra("phoneNumber", phoneNumber)

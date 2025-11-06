@@ -52,7 +52,19 @@ object FCMTokenManager {
                 // Save token locally
                 saveTokenLocally(context, token)
 
-                // Check if token already exists
+                // First, DELETE ALL old tokens for this user to keep database clean
+                try {
+                    SupabaseClient.client.from("fcm_tokens").delete {
+                        filter {
+                            eq("user_id", currentUser.id)
+                        }
+                    }
+                    Log.d(TAG, "Deleted all old tokens for user")
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error deleting old tokens: ${e.message}")
+                }
+
+                // Check if this specific token already exists
                 val existingTokens = try {
                     SupabaseClient.client.from("fcm_tokens")
                         .select {
@@ -67,7 +79,7 @@ object FCMTokenManager {
                 }
 
                 if (existingTokens.isEmpty()) {
-                    // Insert new token
+                    // Insert new token as active
                     val fcmToken = FCMToken(
                         user_id = currentUser.id,
                         token = token,
@@ -78,9 +90,9 @@ object FCMTokenManager {
                     )
 
                     SupabaseClient.client.from("fcm_tokens").insert(fcmToken)
-                    Log.d(TAG, "FCM token saved to Supabase")
+                    Log.d(TAG, "New FCM token saved to Supabase")
                 } else {
-                    // Update existing token
+                    // Reactivate this existing token
                     SupabaseClient.client.from("fcm_tokens").update({
                         set("user_id", currentUser.id)
                         set("device_id", deviceId)
@@ -92,7 +104,7 @@ object FCMTokenManager {
                             eq("token", token)
                         }
                     }
-                    Log.d(TAG, "FCM token updated in Supabase")
+                    Log.d(TAG, "Existing FCM token reactivated in Supabase")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to save FCM token to Supabase", e)
@@ -101,25 +113,24 @@ object FCMTokenManager {
     }
 
     /**
-     * Deactivate FCM token on logout
+     * Delete FCM token on logout
      */
     fun deactivateFCMToken(context: Context) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val token = getTokenLocally(context) ?: return@launch
 
-                SupabaseClient.client.from("fcm_tokens").update({
-                    set("is_active", false)
-                }) {
+                // Delete the token from database
+                SupabaseClient.client.from("fcm_tokens").delete {
                     filter {
                         eq("token", token)
                     }
                 }
 
                 clearTokenLocally(context)
-                Log.d(TAG, "FCM token deactivated")
+                Log.d(TAG, "FCM token deleted")
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to deactivate FCM token", e)
+                Log.e(TAG, "Failed to delete FCM token", e)
             }
         }
     }
@@ -150,7 +161,7 @@ object FCMTokenManager {
                     if (users.isNotEmpty()) {
                         val userId = users[0]["id"] ?: continue
 
-                        // Get active FCM tokens for this user
+                        // Get the latest active FCM token for this user (should only be one)
                         val fcmTokens = try {
                             SupabaseClient.client.from("fcm_tokens")
                                 .select {
@@ -165,8 +176,13 @@ object FCMTokenManager {
                             emptyList()
                         }
 
-                        fcmTokens.forEach { fcmToken ->
-                            tokens.add(Pair(email, fcmToken.token))
+                        // Only use the first active token (there should only be one)
+                        if (fcmTokens.isNotEmpty()) {
+                            val latestToken = fcmTokens.first()
+                            tokens.add(Pair(email, latestToken.token))
+                            Log.d(TAG, "Found token for guardian $email")
+                        } else {
+                            Log.w(TAG, "No active token found for guardian $email")
                         }
                     }
                 } catch (e: Exception) {

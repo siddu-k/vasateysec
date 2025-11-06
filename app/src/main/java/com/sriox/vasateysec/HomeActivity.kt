@@ -41,6 +41,10 @@ class HomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         setupToolbar()
         setupNavigationDrawer()
         setupQuickActions()
+        
+        // Ensure session is valid before loading profile
+        ensureSessionValid()
+        
         loadUserProfile()
         
         // Initialize FCM
@@ -48,6 +52,36 @@ class HomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         
         // Request all necessary permissions
         requestAllPermissions()
+    }
+    
+    private fun ensureSessionValid() {
+        // Check if we have a local session
+        if (!com.sriox.vasateysec.utils.SessionManager.isLoggedIn()) {
+            // No local session - redirect to login
+            android.util.Log.w("HomeActivity", "No session found, redirecting to login")
+            val intent = Intent(this, LoginActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            startActivity(intent)
+            finish()
+            return
+        }
+        
+        // We have local session, ensure Supabase session is restored
+        lifecycleScope.launch {
+            try {
+                val currentUser = SupabaseClient.client.auth.currentUserOrNull()
+                if (currentUser == null) {
+                    android.util.Log.w("HomeActivity", "Supabase session not available, will use local session")
+                    // Don't logout - just log the warning
+                    // The app will work with local session data
+                } else {
+                    android.util.Log.d("HomeActivity", "Supabase session active for: ${currentUser.id}")
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("HomeActivity", "Session check failed: ${e.message}")
+                // Don't logout on error - continue with local session
+            }
+        }
     }
 
     private fun setupToolbar() {
@@ -129,6 +163,7 @@ class HomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
                     val userName = userProfile["name"] ?: "User"
                     val userEmail = userProfile["email"] ?: ""
+                    val wakeWord = userProfile["wake_word"] ?: "help me"
 
                     binding.welcomeText.text = "Welcome, $userName"
 
@@ -136,6 +171,13 @@ class HomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                     val headerView = binding.navigationView.getHeaderView(0)
                     headerView.findViewById<TextView>(R.id.navHeaderName).text = userName
                     headerView.findViewById<TextView>(R.id.navHeaderEmail).text = userEmail
+                    
+                    // Save wake word to SharedPreferences for VoskService
+                    getSharedPreferences("vasatey_prefs", MODE_PRIVATE).edit()
+                        .putString("wake_word", wakeWord.lowercase())
+                        .apply()
+                    
+                    android.util.Log.d("HomeActivity", "Wake word loaded: $wakeWord")
                 }
             } catch (e: Exception) {
                 Toast.makeText(this@HomeActivity, "Failed to load profile", Toast.LENGTH_SHORT).show()
@@ -195,8 +237,13 @@ class HomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 // Sign out from Supabase
                 SupabaseClient.client.auth.signOut()
                 
-                // Navigate to login
-                startActivity(Intent(this@HomeActivity, LoginActivity::class.java))
+                // Clear local session
+                com.sriox.vasateysec.utils.SessionManager.clearSession()
+                
+                // Navigate to login with clear task flags
+                val intent = Intent(this@HomeActivity, LoginActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                startActivity(intent)
                 finish()
             } catch (e: Exception) {
                 Toast.makeText(this@HomeActivity, "Logout failed: ${e.message}", Toast.LENGTH_SHORT).show()

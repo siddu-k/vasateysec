@@ -153,65 +153,58 @@ object AlertManager {
             // Get FCM tokens for guardians and self with better error handling
             val guardianTokens = try {
                 Log.d(TAG, "Getting FCM tokens for ${guardianEmails.size} guardians")
-                @Suppress("UNCHECKED_CAST")
-                val tokens = FCMTokenManager.getGuardianTokens(guardianEmails) as? Map<String, Map<String, String>>
-                    ?: emptyMap()
-                Log.d(TAG, "Retrieved ${tokens.size} guardian tokens")
-                tokens
+                val tokenPairs = FCMTokenManager.getGuardianTokens(guardianEmails)
+                
+                // Convert List<Pair<String, String>> to Map<String, Map<String, String>>
+                // where the key is guardian_user_id and value contains token and email
+                val tokensMap = mutableMapOf<String, Map<String, String>>()
+                for ((email, token) in tokenPairs) {
+                    // Get guardian user info for this email
+                    val guardianInfo = guardians.find { it.guardian_email == email }
+                    if (guardianInfo != null) {
+                        val guardianUserId = guardianInfo.guardian_user_id ?: email
+                        tokensMap[guardianUserId] = mapOf(
+                            "token" to token,
+                            "email" to email,
+                            "name" to email.substringBefore("@")
+                        )
+                    }
+                }
+                Log.d(TAG, "Retrieved ${tokensMap.size} guardian tokens")
+                tokensMap
             } catch (e: Exception) {
                 Log.e(TAG, "Error getting guardian tokens", e)
                 emptyMap<String, Map<String, String>>()
             }
             
-            val selfToken = try {
-                FCMTokenManager.getCurrentUserToken(context).also {
-                    Log.d(TAG, if (it != null) "Retrieved self FCM token" else "No self FCM token available")
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error getting self FCM token", e)
-                null
-            }
-            
-            // Combine guardian tokens and self token
-            val allTokens: Map<String, Map<String, String>> = if (selfToken != null) {
-                val combined = mutableMapOf<String, Map<String, String>>()
-                combined.putAll(guardianTokens)
-                combined[currentUser.id] = mapOf(
-                    "token" to selfToken,
-                    "email" to userEmail,
-                    "name" to userName
-                )
-                combined
-            } else {
-                guardianTokens
-            }
-
-            if (allTokens.isEmpty()) {
-                Log.w(TAG, "No FCM tokens found for guardians or self")
+            // Only send to guardians, NOT to self
+            if (guardianTokens.isEmpty()) {
+                Log.w(TAG, "No FCM tokens found for guardians")
                 return@withContext Result.failure(Exception("No active guardians found with the app installed"))
             }
+            
+            Log.d(TAG, "Sending alerts to ${guardianTokens.size} guardians (excluding self)")
 
-            // Send notifications to each guardian
+            // Send notifications to each guardian (NOT to self)
             var successCount = 0
             
-            // Process each token in the map
-            for ((userId, tokenInfo) in allTokens) {
-                val isSelf = userId == currentUser.id
-                val title = if (isSelf) "🆘 Help is on the way!" else "🚨 $userName needs help!"
-                val body = if (isSelf) 
-                    "We've alerted your guardians. Stay where you are, help is coming!" 
-                else 
-                    "$userName has triggered an emergency alert. Tap to view their location."
-                
+            // Process each guardian token
+            for ((guardianUserId, tokenInfo) in guardianTokens) {
+                val guardianEmail = tokenInfo["email"] as? String ?: ""
                 val token = tokenInfo["token"] as? String ?: continue
+                
+                val title = "🚨 $userName needs help!"
+                val body = "$userName has triggered an emergency alert. Tap to view their location."
+                
+                Log.d(TAG, "Sending notification to GUARDIAN: $guardianEmail")
                 
                 val success = sendNotificationToSupabase(
                     alertId = alertId,
                     token = token,
                     title = title,
                     body = body,
-                    recipientEmail = if (isSelf) userEmail else tokenInfo["email"] as? String ?: "",
-                    isSelfAlert = isSelf,
+                    userEmail = userEmail,
+                    guardianEmail = guardianEmail,
                     userName = userName,
                     userPhone = userPhone,
                     latitude = latitude,
@@ -220,16 +213,19 @@ object AlertManager {
 
                 if (success) {
                     successCount++
+                    Log.d(TAG, "Successfully sent notification to guardian: $guardianEmail")
+                } else {
+                    Log.e(TAG, "Failed to send notification to guardian: $guardianEmail")
                 }
             }
             
-            // Create alert recipient records for all notifications
-            for ((userId, tokenInfo) in allTokens) {
+            // Create alert recipient records for all guardian notifications
+            for ((guardianUserId, tokenInfo) in guardianTokens) {
                 try {
-                    val isSelf = userId == currentUser.id
                     val recipient = AlertRecipient(
                         alert_id = alertId,
-                        guardian_email = if (isSelf) userEmail else tokenInfo["email"] as? String ?: "",
+                        guardian_email = tokenInfo["email"] as? String ?: "",
+                        guardian_user_id = guardianUserId, // Add guardian user ID for querying received alerts
                         fcm_token = tokenInfo["token"] as? String ?: "",
                         notification_sent = true,
                         notification_delivered = false
@@ -238,6 +234,8 @@ object AlertManager {
                     SupabaseClient.client
                         .from("alert_recipients")
                         .insert(recipient)
+                    
+                    Log.d(TAG, "Created alert recipient record for guardian: $guardianUserId")
                         
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to create alert recipient record", e)
@@ -265,8 +263,8 @@ object AlertManager {
         token: String,
         title: String,
         body: String,
-        recipientEmail: String,
-        isSelfAlert: Boolean,
+        userEmail: String,
+        guardianEmail: String,
         userName: String,
         userPhone: String,
         latitude: Double?,
@@ -282,8 +280,8 @@ object AlertManager {
                         "token": "$token",
                         "title": "$title",
                         "body": "$body",
-                        "email": "$recipientEmail",
-                        "isSelfAlert": $isSelfAlert,
+                        "email": "$userEmail",
+                        "isSelfAlert": false,
                         "fullName": "$userName",
                         "phoneNumber": "$userPhone",
                         "lastKnownLatitude": ${latitude ?: "null"},
@@ -306,11 +304,11 @@ object AlertManager {
                 val responseBody = response.body?.string()
                 
                 if (response.isSuccessful) {
-                    Log.d(TAG, "Notification sent successfully to $recipientEmail via Vercel")
+                    Log.d(TAG, "Notification sent successfully to guardian $guardianEmail via Vercel")
                     Log.d(TAG, "Response: $responseBody")
                     true
                 } else {
-                    Log.e(TAG, "Failed to send notification to $recipientEmail. Status: ${response.code}")
+                    Log.e(TAG, "Failed to send notification to guardian $guardianEmail. Status: ${response.code}")
                     Log.e(TAG, "Response: $responseBody")
                     false
                 }

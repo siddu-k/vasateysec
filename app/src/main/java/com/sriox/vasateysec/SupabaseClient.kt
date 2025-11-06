@@ -7,7 +7,9 @@ import io.github.jan.supabase.gotrue.Auth
 import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.storage.Storage
+import io.ktor.client.engine.okhttp.OkHttp
 import kotlinx.serialization.json.Json
+import java.util.concurrent.TimeUnit
 
 object SupabaseClient {
     // Supabase project credentials
@@ -30,10 +32,24 @@ object SupabaseClient {
             supabaseUrl = SUPABASE_URL,
             supabaseKey = SUPABASE_ANON_KEY
         ) {
+            // Configure HTTP client with increased timeouts
+            httpEngine = OkHttp.create {
+                preconfigured = okhttp3.OkHttpClient.Builder()
+                    .connectTimeout(30, TimeUnit.SECONDS)
+                    .readTimeout(30, TimeUnit.SECONDS)
+                    .writeTimeout(30, TimeUnit.SECONDS)
+                    .callTimeout(60, TimeUnit.SECONDS)
+                    .retryOnConnectionFailure(true)
+                    .build()
+            }
+            
             install(Auth) {
-                // Use SharedPreferences for session storage
+                // Enable session persistence with SharedPreferences
                 scheme = "app"
                 host = "supabase.com"
+                // Session will be automatically saved and restored
+                alwaysAutoRefresh = true
+                autoLoadFromStorage = true
             }
             install(Postgrest) {
                 serializer = io.github.jan.supabase.serializer.KotlinXSerializer(json)

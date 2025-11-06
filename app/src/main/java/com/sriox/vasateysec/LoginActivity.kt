@@ -2,25 +2,30 @@ package com.sriox.vasateysec
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.sriox.vasateysec.databinding.ActivityLoginBinding
+import com.sriox.vasateysec.utils.SessionManager
 import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.gotrue.providers.builtin.Email
+import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.launch
 
 class LoginActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLoginBinding
+    private val TAG = "LoginActivity"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        checkCurrentUser()
+        // Don't auto-check here - SplashActivity handles that
+        // This prevents the flashing login screen issue
 
         binding.loginButton.setOnClickListener {
             val email = binding.emailInput.text.toString().trim()
@@ -34,19 +39,6 @@ class LoginActivity : AppCompatActivity() {
         binding.signupPrompt.setOnClickListener {
             startActivity(Intent(this, SignupActivity::class.java))
             finish()
-        }
-    }
-
-    private fun checkCurrentUser() {
-        lifecycleScope.launch {
-            try {
-                val currentUser = SupabaseClient.client.auth.currentUserOrNull()
-                if (currentUser != null) {
-                    navigateToMain()
-                }
-            } catch (e: Exception) {
-                // User not logged in
-            }
         }
     }
 
@@ -72,20 +64,53 @@ class LoginActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             try {
+                // Sign in with Supabase
                 SupabaseClient.client.auth.signInWith(Email) {
                     this.email = email
                     this.password = password
                 }
 
+                // Get user info
+                val currentUser = SupabaseClient.client.auth.currentUserOrNull()
+                    ?: throw Exception("Login succeeded but no user found")
+                
+                Log.d(TAG, "User logged in: ${currentUser.id}")
+                
+                // Fetch user profile to get name
+                val userProfile = try {
+                    SupabaseClient.client.from("users")
+                        .select {
+                            filter {
+                                eq("id", currentUser.id)
+                            }
+                        }
+                        .decodeSingle<com.sriox.vasateysec.models.UserProfile>()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to fetch user profile: ${e.message}")
+                    null
+                }
+                
+                val userName = userProfile?.name ?: email.substringBefore("@")
+                
+                // Save session to SessionManager
+                SessionManager.saveSession(
+                    userId = currentUser.id,
+                    email = email,
+                    name = userName
+                )
+                
+                Log.d(TAG, "Session saved successfully")
+
                 Toast.makeText(
                     this@LoginActivity,
-                    "Login successful!",
+                    "Welcome back, $userName!",
                     Toast.LENGTH_SHORT
                 ).show()
 
                 navigateToMain()
 
             } catch (e: Exception) {
+                Log.e(TAG, "Login failed", e)
                 Toast.makeText(
                     this@LoginActivity,
                     "Login failed: ${e.message}",
@@ -99,7 +124,9 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun navigateToMain() {
-        startActivity(Intent(this, HomeActivity::class.java))
+        val intent = Intent(this, HomeActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
         finish()
     }
 }

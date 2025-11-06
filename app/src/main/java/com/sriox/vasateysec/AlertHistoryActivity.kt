@@ -11,8 +11,10 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.sriox.vasateysec.databinding.ActivityAlertHistoryBinding
 import com.sriox.vasateysec.models.AlertHistory
+import com.sriox.vasateysec.models.AlertRecipient
 import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.postgrest.from
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -56,7 +58,8 @@ class AlertHistoryActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
-        alertAdapter = AlertAdapter(alerts) { alert ->
+        val currentUserId = SupabaseClient.client.auth.currentUserOrNull()?.id ?: ""
+        alertAdapter = AlertAdapter(alerts, currentUserId) { alert ->
             openAlertDetails(alert)
         }
         binding.alertsRecyclerView.apply {
@@ -93,40 +96,86 @@ class AlertHistoryActivity : AppCompatActivity() {
 
                 Log.d("AlertHistory", "Current user: ${currentUser.id}")
 
-                // Get alerts sent by current user with pagination
-                val sentAlerts = try {
-                    Log.d("AlertHistory", "Fetching sent alerts...")
-                    
-                    val result = SupabaseClient.client.from("alert_history")
-                        .select {
-                            filter {
-                                eq("user_id", currentUser.id)
+                // Fetch both sent and received alerts in parallel
+                val sentAlertsDeferred = async {
+                    try {
+                        Log.d("AlertHistory", "Fetching sent alerts...")
+                        SupabaseClient.client.from("alert_history")
+                            .select {
+                                filter {
+                                    eq("user_id", currentUser.id)
+                                }
                             }
-                        }
-                        .decodeList<AlertHistory>()
-                        .sortedByDescending { it.created_at }
-                        .drop(currentOffset)
-                        .take(pageSize)
-                    Log.d("AlertHistory", "Loaded ${result.size} sent alerts")
-                    result
-                } catch (e: Exception) {
-                    Log.e("AlertHistory", "Failed to load sent alerts: ${e.message}", e)
-                    Toast.makeText(this@AlertHistoryActivity, "Error: ${e.message}", Toast.LENGTH_LONG).show()
-                    emptyList()
+                            .decodeList<AlertHistory>()
+                    } catch (e: Exception) {
+                        Log.e("AlertHistory", "Failed to load sent alerts: ${e.message}", e)
+                        emptyList()
+                    }
                 }
 
+                val receivedAlertsDeferred = async {
+                    try {
+                        Log.d("AlertHistory", "Fetching received alerts (as guardian)...")
+                        
+                        // First get alert_recipients where current user is the guardian
+                        val recipients = SupabaseClient.client.from("alert_recipients")
+                            .select {
+                                filter {
+                                    eq("guardian_user_id", currentUser.id)
+                                }
+                            }
+                            .decodeList<AlertRecipient>()
+                        
+                        Log.d("AlertHistory", "Found ${recipients.size} alerts where user is guardian")
+                        
+                        // Get the alert IDs
+                        val alertIds = recipients.mapNotNull { it.alert_id }.distinct()
+                        
+                        if (alertIds.isEmpty()) {
+                            emptyList()
+                        } else {
+                            // Fetch the actual alerts
+                            val alerts = SupabaseClient.client.from("alert_history")
+                                .select {
+                                    filter {
+                                        isIn("id", alertIds)
+                                    }
+                                }
+                                .decodeList<AlertHistory>()
+                            Log.d("AlertHistory", "Loaded ${alerts.size} received alerts")
+                            alerts
+                        }
+                    } catch (e: Exception) {
+                        Log.e("AlertHistory", "Failed to load received alerts: ${e.message}", e)
+                        emptyList()
+                    }
+                }
+
+                // Wait for both queries to complete
+                val sentAlerts = sentAlertsDeferred.await()
+                val receivedAlerts = receivedAlertsDeferred.await()
+                
+                Log.d("AlertHistory", "Sent alerts: ${sentAlerts.size}, Received alerts: ${receivedAlerts.size}")
+
+                // Combine and sort all alerts by timestamp
+                val allAlerts = (sentAlerts + receivedAlerts)
+                    .distinctBy { it.id } // Remove duplicates if any
+                    .sortedByDescending { it.created_at }
+                    .drop(currentOffset)
+                    .take(pageSize)
+
                 // Add new alerts to the list
-                alerts.addAll(sentAlerts)
+                alerts.addAll(allAlerts)
                 
                 // Log first alert to see what we got from DB
-                if (sentAlerts.isNotEmpty()) {
-                    val first = sentAlerts[0]
+                if (allAlerts.isNotEmpty()) {
+                    val first = allAlerts[0]
                     Log.d("AlertHistory", "First alert from DB: id=${first.id}, lat=${first.latitude}, lon=${first.longitude}")
                 }
                 
                 // Check if there are more alerts to load
-                hasMore = sentAlerts.size >= pageSize
-                currentOffset += sentAlerts.size
+                hasMore = allAlerts.size >= pageSize
+                currentOffset += allAlerts.size
 
                 Log.d("AlertHistory", "Total alerts: ${alerts.size}, hasMore: $hasMore")
 
@@ -179,6 +228,7 @@ class AlertHistoryActivity : AppCompatActivity() {
 // Alert Adapter
 class AlertAdapter(
     private val alerts: List<AlertHistory>,
+    private val currentUserId: String,
     private val onClick: (AlertHistory) -> Unit
 ) : RecyclerView.Adapter<AlertAdapter.AlertViewHolder>() {
 
@@ -195,10 +245,26 @@ class AlertAdapter(
     override fun onBindViewHolder(holder: AlertViewHolder, position: Int) {
         val alert = alerts[position]
         
+        // Determine if this is a sent or received alert
+        val isSentByMe = alert.user_id == currentUserId
+        
         holder.binding.alertUserName.text = alert.user_name
         holder.binding.alertEmail.text = alert.user_email
         holder.binding.alertPhone.text = alert.user_phone
         holder.binding.alertStatus.text = alert.status.uppercase()
+        
+        // Set alert type badge
+        if (isSentByMe) {
+            holder.binding.alertType.text = "📤 Sent"
+            holder.binding.alertType.setBackgroundColor(
+                android.graphics.Color.parseColor("#2196F3") // Blue
+            )
+        } else {
+            holder.binding.alertType.text = "📥 Received"
+            holder.binding.alertType.setBackgroundColor(
+                android.graphics.Color.parseColor("#4CAF50") // Green
+            )
+        }
 
         if (alert.latitude != null && alert.longitude != null) {
             holder.binding.alertLocation.text = "📍 Lat: %.4f, Long: %.4f".format(alert.latitude, alert.longitude)

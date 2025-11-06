@@ -12,6 +12,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import com.sriox.vasateysec.utils.AlertManager
+import com.sriox.vasateysec.utils.CameraManager
 import com.sriox.vasateysec.utils.LocationManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -224,14 +225,29 @@ class VoskWakeWordService : Service(), RecognitionListener {
                     Log.d("VoskService", "✅ Will send alert WITH fresh location: ${location.latitude}, ${location.longitude}")
                 }
                 
+                Log.d("VoskService", "========================================")
+                Log.d("VoskService", "📸 Capturing emergency photos...")
+                Log.d("VoskService", "========================================")
+                
+                // Capture photos from both cameras
+                val photos = CameraManager.captureEmergencyPhotos(this@VoskWakeWordService)
+                
+                Log.d("VoskService", "========================================")
+                Log.d("VoskService", "📸 Photo capture results:")
+                Log.d("VoskService", "Front photo: ${if (photos.frontPhoto != null) "✅ ${photos.frontPhoto.absolutePath} (${photos.frontPhoto.length()} bytes)" else "❌ NULL"}")
+                Log.d("VoskService", "Back photo: ${if (photos.backPhoto != null) "✅ ${photos.backPhoto.absolutePath} (${photos.backPhoto.length()} bytes)" else "❌ NULL"}")
+                Log.d("VoskService", "========================================")
+                
                 Log.d("VoskService", "Sending emergency alert...")
                 
-                // Send alert to guardians
+                // Send alert to guardians with photos
                 val result = AlertManager.sendEmergencyAlert(
                     context = this@VoskWakeWordService,
                     latitude = location?.latitude,
                     longitude = location?.longitude,
-                    locationAccuracy = location?.accuracy
+                    locationAccuracy = location?.accuracy,
+                    frontPhotoFile = photos.frontPhoto,
+                    backPhotoFile = photos.backPhoto
                 )
                 
                 // Show result notification

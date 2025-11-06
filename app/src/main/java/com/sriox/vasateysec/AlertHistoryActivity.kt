@@ -207,6 +207,7 @@ class AlertHistoryActivity : AppCompatActivity() {
 
     private fun openAlertDetails(alert: AlertHistory) {
         Log.d("AlertHistory", "Opening alert details: lat=${alert.latitude}, lon=${alert.longitude}")
+        Log.d("AlertHistory", "Photo URLs: front=${alert.front_photo_url}, back=${alert.back_photo_url}")
         val intent = Intent(this, HelpRequestActivity::class.java).apply {
             putExtra("fullName", alert.user_name)
             putExtra("email", alert.user_email)
@@ -215,6 +216,9 @@ class AlertHistoryActivity : AppCompatActivity() {
             putExtra("latitude", alert.latitude?.toString() ?: "")
             putExtra("longitude", alert.longitude?.toString() ?: "")
             putExtra("timestamp", alert.created_at)
+            // Pass photo URLs
+            putExtra("frontPhotoUrl", alert.front_photo_url ?: "")
+            putExtra("backPhotoUrl", alert.back_photo_url ?: "")
         }
         startActivity(intent)
     }
@@ -291,6 +295,34 @@ class AlertAdapter(
             } catch (e: Exception) {
                 holder.binding.alertTime.text = "Recently"
             }
+        }
+        
+        // Load emergency photos if available
+        val hasFrontPhoto = !alert.front_photo_url.isNullOrEmpty()
+        val hasBackPhoto = !alert.back_photo_url.isNullOrEmpty()
+        
+        if (hasFrontPhoto || hasBackPhoto) {
+            holder.binding.photosContainer.visibility = View.VISIBLE
+            
+            if (hasFrontPhoto) {
+                com.bumptech.glide.Glide.with(holder.itemView.context)
+                    .load(alert.front_photo_url)
+                    .into(holder.binding.frontPhotoThumb)
+                holder.binding.frontPhotoThumb.visibility = View.VISIBLE
+            } else {
+                holder.binding.frontPhotoThumb.visibility = View.GONE
+            }
+            
+            if (hasBackPhoto) {
+                com.bumptech.glide.Glide.with(holder.itemView.context)
+                    .load(alert.back_photo_url)
+                    .into(holder.binding.backPhotoThumb)
+                holder.binding.backPhotoThumb.visibility = View.VISIBLE
+            } else {
+                holder.binding.backPhotoThumb.visibility = View.GONE
+            }
+        } else {
+            holder.binding.photosContainer.visibility = View.GONE
         }
 
         holder.itemView.setOnClickListener {

@@ -10,8 +10,13 @@ import com.sriox.vasateysec.models.UserProfile
 import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Returning
+import io.github.jan.supabase.storage.storage
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import java.io.File
 import java.util.UUID
 
 object AlertManager {
@@ -24,7 +29,9 @@ object AlertManager {
         context: Context,
         latitude: Double?,
         longitude: Double?,
-        locationAccuracy: Float? = null
+        locationAccuracy: Float? = null,
+        frontPhotoFile: File? = null,
+        backPhotoFile: File? = null
     ): Result<String> = withContext(Dispatchers.IO) {
         try {
             Log.d(TAG, "sendEmergencyAlert called with location: lat=$latitude, lon=$longitude, accuracy=$locationAccuracy")
@@ -85,6 +92,60 @@ object AlertManager {
             
             Log.d(TAG, "Sending alert for user: $userName ($userEmail)")
 
+            // Upload photos to Supabase Storage if available
+            Log.d(TAG, "========================================")
+            Log.d(TAG, "📤 Photo Upload Process Starting...")
+            Log.d(TAG, "Front photo file: ${if (frontPhotoFile != null) "${frontPhotoFile.absolutePath} (exists: ${frontPhotoFile.exists()}, size: ${frontPhotoFile.length()})" else "NULL"}")
+            Log.d(TAG, "Back photo file: ${if (backPhotoFile != null) "${backPhotoFile.absolutePath} (exists: ${backPhotoFile.exists()}, size: ${backPhotoFile.length()})" else "NULL"}")
+            Log.d(TAG, "========================================")
+            
+            var frontPhotoUrl: String? = null
+            var backPhotoUrl: String? = null
+            
+            // Upload both photos in parallel with timeout (max 15 seconds total)
+            try {
+                withTimeout(15000L) {
+                    // Launch both uploads in parallel
+                    val frontJob = async {
+                        if (frontPhotoFile != null && frontPhotoFile.exists()) {
+                            Log.d(TAG, "📤 Uploading front camera photo...")
+                            val url = uploadPhotoToStorage(userId, frontPhotoFile, "front")
+                            Log.d(TAG, if (url != null) "✅ Front photo uploaded: $url" else "❌ Front photo upload failed")
+                            url
+                        } else {
+                            Log.w(TAG, "⚠️ Skipping front photo upload - file is null or doesn't exist")
+                            null
+                        }
+                    }
+                    
+                    val backJob = async {
+                        if (backPhotoFile != null && backPhotoFile.exists()) {
+                            Log.d(TAG, "📤 Uploading back camera photo...")
+                            val url = uploadPhotoToStorage(userId, backPhotoFile, "back")
+                            Log.d(TAG, if (url != null) "✅ Back photo uploaded: $url" else "❌ Back photo upload failed")
+                            url
+                        } else {
+                            Log.w(TAG, "⚠️ Skipping back photo upload - file is null or doesn't exist")
+                            null
+                        }
+                    }
+                    
+                    // Wait for both uploads to complete
+                    frontPhotoUrl = frontJob.await()
+                    backPhotoUrl = backJob.await()
+                }
+            } catch (e: TimeoutCancellationException) {
+                Log.e(TAG, "⏱️ Photo upload timeout after 15 seconds - proceeding without photos")
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Photo upload error: ${e.message}", e)
+            }
+            
+            Log.d(TAG, "========================================")
+            Log.d(TAG, "📤 Photo Upload Complete")
+            Log.d(TAG, "Front URL: ${frontPhotoUrl ?: "NONE"}")
+            Log.d(TAG, "Back URL: ${backPhotoUrl ?: "NONE"}")
+            Log.d(TAG, "========================================")
+
             // Create alert history record - use the model but it will skip null id
             val alertHistory = AlertHistory(
                 user_id = userId,
@@ -95,7 +156,9 @@ object AlertManager {
                 longitude = longitude,
                 location_accuracy = locationAccuracy,
                 alert_type = "voice_help",
-                status = "sent"
+                status = "sent",
+                front_photo_url = frontPhotoUrl,
+                back_photo_url = backPhotoUrl
             )
             
             Log.d(TAG, "Creating alert history with location: lat=$latitude, lon=$longitude")
@@ -235,7 +298,12 @@ object AlertManager {
                 val title = "🚨 $userName needs help!"
                 val body = "$userName has triggered an emergency alert. Tap to view their location."
                 
-                Log.d(TAG, "Sending notification to GUARDIAN: $guardianEmail")
+                Log.d(TAG, "========================================")
+                Log.d(TAG, "📤 Sending notification to GUARDIAN: $guardianEmail")
+                Log.d(TAG, "Photo URLs being sent:")
+                Log.d(TAG, "  Front: ${frontPhotoUrl ?: "NONE"}")
+                Log.d(TAG, "  Back: ${backPhotoUrl ?: "NONE"}")
+                Log.d(TAG, "========================================")
                 
                 val success = sendNotificationToSupabase(
                     alertId = alertId,
@@ -247,7 +315,9 @@ object AlertManager {
                     userName = userName,
                     userPhone = userPhone,
                     latitude = latitude,
-                    longitude = longitude
+                    longitude = longitude,
+                    frontPhotoUrl = frontPhotoUrl,
+                    backPhotoUrl = backPhotoUrl
                 )
 
                 if (success) {
@@ -307,7 +377,9 @@ object AlertManager {
         userName: String,
         userPhone: String,
         latitude: Double?,
-        longitude: Double?
+        longitude: Double?,
+        frontPhotoUrl: String? = null,
+        backPhotoUrl: String? = null
     ): Boolean {
         return withContext(Dispatchers.IO) {
             try {
@@ -324,9 +396,16 @@ object AlertManager {
                         "fullName": "$userName",
                         "phoneNumber": "$userPhone",
                         "lastKnownLatitude": ${latitude ?: "null"},
-                        "lastKnownLongitude": ${longitude ?: "null"}
+                        "lastKnownLongitude": ${longitude ?: "null"},
+                        "frontPhotoUrl": ${if (frontPhotoUrl != null) "\"$frontPhotoUrl\"" else "null"},
+                        "backPhotoUrl": ${if (backPhotoUrl != null) "\"$backPhotoUrl\"" else "null"}
                     }
                 """.trimIndent()
+                
+                Log.d(TAG, "========================================")
+                Log.d(TAG, "📤 JSON Payload being sent to Vercel:")
+                Log.d(TAG, jsonBody)
+                Log.d(TAG, "========================================")
                 
                 val requestBody = okhttp3.RequestBody.create(
                     null,
@@ -354,6 +433,51 @@ object AlertManager {
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send notification via Vercel", e)
                 false
+            }
+        }
+    }
+    
+    /**
+     * Upload photo to Supabase Storage
+     */
+    private suspend fun uploadPhotoToStorage(userId: String, photoFile: File, cameraType: String): String? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val timestamp = System.currentTimeMillis()
+                val fileName = "emergency_${userId}_${cameraType}_${timestamp}.jpg"
+                val bucketName = "emergency-photos"
+                
+                Log.d(TAG, "========================================")
+                Log.d(TAG, "📤 Uploading $cameraType photo to Supabase Storage")
+                Log.d(TAG, "Bucket: $bucketName")
+                Log.d(TAG, "File: $fileName")
+                Log.d(TAG, "Size: ${photoFile.length()} bytes")
+                Log.d(TAG, "========================================")
+                
+                // Upload file to Supabase Storage
+                val bucket = SupabaseClient.client.storage.from(bucketName)
+                
+                // Use proper upload with content type
+                bucket.upload(
+                    path = fileName,
+                    data = photoFile.readBytes(),
+                    upsert = true
+                )
+                
+                // Get public URL
+                val publicUrl = bucket.publicUrl(fileName)
+                Log.d(TAG, "✅ Photo uploaded successfully!")
+                Log.d(TAG, "URL: $publicUrl")
+                Log.d(TAG, "========================================")
+                
+                return@withContext publicUrl
+            } catch (e: Exception) {
+                Log.e(TAG, "========================================")
+                Log.e(TAG, "❌ Failed to upload $cameraType photo to storage")
+                Log.e(TAG, "Error: ${e.message}")
+                Log.e(TAG, "Stack trace:", e)
+                Log.e(TAG, "========================================")
+                return@withContext null
             }
         }
     }

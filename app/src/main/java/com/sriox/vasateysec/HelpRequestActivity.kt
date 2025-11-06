@@ -4,8 +4,10 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.bumptech.glide.Glide
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
@@ -134,6 +136,52 @@ class HelpRequestActivity : AppCompatActivity(), OnMapReadyCallback {
                     startActivity(browserIntent)
                 }
             }
+        }
+        
+        // Load emergency photos if available
+        val frontPhotoUrl = intent.getStringExtra("frontPhotoUrl") ?: ""
+        val backPhotoUrl = intent.getStringExtra("backPhotoUrl") ?: ""
+        
+        Log.d("HelpRequest", "Photo URLs: front=$frontPhotoUrl, back=$backPhotoUrl")
+        
+        var hasPhotos = false
+        
+        if (frontPhotoUrl.isNotEmpty() && frontPhotoUrl != "null") {
+            Log.d("HelpRequest", "Loading front camera photo...")
+            binding.frontPhotoCard.visibility = View.VISIBLE
+            Glide.with(this)
+                .load(frontPhotoUrl)
+                .into(binding.frontPhoto)
+            
+            // Click to view full image
+            binding.frontPhoto.setOnClickListener {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(frontPhotoUrl))
+                startActivity(intent)
+            }
+            hasPhotos = true
+        }
+        
+        if (backPhotoUrl.isNotEmpty() && backPhotoUrl != "null") {
+            Log.d("HelpRequest", "Loading back camera photo...")
+            binding.backPhotoCard.visibility = View.VISIBLE
+            Glide.with(this)
+                .load(backPhotoUrl)
+                .into(binding.backPhoto)
+            
+            // Click to view full image
+            binding.backPhoto.setOnClickListener {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(backPhotoUrl))
+                startActivity(intent)
+            }
+            hasPhotos = true
+        }
+        
+        if (hasPhotos) {
+            binding.photosHeader.visibility = View.VISIBLE
+            binding.photosContainer.visibility = View.VISIBLE
+            Log.d("HelpRequest", "Emergency photos displayed")
+        } else {
+            Log.d("HelpRequest", "No emergency photos available")
         }
     }
     

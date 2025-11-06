@@ -42,7 +42,9 @@ data class AlertHistory(
     val location_accuracy: Float? = null,
     val alert_type: String = "voice_help",
     val status: String = "sent",
-    val created_at: String? = null
+    val created_at: String? = null,
+    val front_photo_url: String? = null,
+    val back_photo_url: String? = null
 )
 
 @Serializable

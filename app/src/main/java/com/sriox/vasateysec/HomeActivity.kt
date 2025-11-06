@@ -260,6 +260,12 @@ class HomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             permissionsToRequest.add(Manifest.permission.RECORD_AUDIO)
         }
         
+        // Camera permission
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) 
+            != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.CAMERA)
+        }
+        
         // Location permissions
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) 
             != PackageManager.PERMISSION_GRANTED) {

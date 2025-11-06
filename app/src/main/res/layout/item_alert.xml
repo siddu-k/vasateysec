@@ -88,5 +88,34 @@
             android:textColor="@android:color/darker_gray"
             android:layout_marginTop="8dp" />
 
+        <!-- Emergency Photos -->
+        <LinearLayout
+            android:id="@+id/photosContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="12dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/frontPhotoThumb"
+                android:layout_width="0dp"
+                android:layout_height="80dp"
+                android:layout_weight="1"
+                android:scaleType="centerCrop"
+                android:layout_marginEnd="8dp"
+                android:background="@android:color/darker_gray"
+                android:contentDescription="Front camera photo" />
+
+            <ImageView
+                android:id="@+id/backPhotoThumb"
+                android:layout_width="0dp"
+                android:layout_height="80dp"
+                android:layout_weight="1"
+                android:scaleType="centerCrop"
+                android:background="@android:color/darker_gray"
+                android:contentDescription="Back camera photo" />
+        </LinearLayout>
+
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

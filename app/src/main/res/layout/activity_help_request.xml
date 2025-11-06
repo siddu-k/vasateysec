@@ -181,7 +181,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="300dp"
                 app:cardElevation="4dp"
-                app:cardCornerRadius="12dp">
+                app:cardCornerRadius="12dp"
+                android:layout_marginBottom="24dp">
 
                 <fragment
                     android:id="@+id/mapFragment"
@@ -190,6 +191,99 @@
                     android:layout_height="match_parent"
                     tools:context=".HelpRequestActivity" />
             </com.google.android.material.card.MaterialCardView>
+
+            <!-- Emergency Photos Section -->
+            <TextView
+                android:id="@+id/photosHeader"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="📸 Emergency Photos"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="12dp"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/photosContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <!-- Front Camera Photo -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/frontPhotoCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardElevation="4dp"
+                    app:cardCornerRadius="12dp"
+                    android:layout_marginBottom="16dp"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Front Camera"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:padding="12dp"
+                            android:background="@android:color/darker_gray"
+                            android:textColor="@android:color/white" />
+
+                        <ImageView
+                            android:id="@+id/frontPhoto"
+                            android:layout_width="match_parent"
+                            android:layout_height="250dp"
+                            android:scaleType="fitCenter"
+                            android:adjustViewBounds="true"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:contentDescription="Front camera photo - tap to view full size" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Back Camera Photo -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/backPhotoCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:cardElevation="4dp"
+                    app:cardCornerRadius="12dp"
+                    android:layout_marginBottom="16dp"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Back Camera"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:padding="12dp"
+                            android:background="@android:color/darker_gray"
+                            android:textColor="@android:color/white" />
+
+                        <ImageView
+                            android:id="@+id/backPhoto"
+                            android:layout_width="match_parent"
+                            android:layout_height="250dp"
+                            android:scaleType="fitCenter"
+                            android:adjustViewBounds="true"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:contentDescription="Back camera photo - tap to view full size" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+            </LinearLayout>
 
         </LinearLayout>
 

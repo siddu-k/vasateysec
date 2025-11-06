@@ -73,8 +73,11 @@ class VasateyFCMService : FirebaseMessagingService() {
         val alertType = data["alertType"] ?: "emergency"
         val timestamp = data["timestamp"] ?: ""
         val isSelfAlert = data["isSelfAlert"]?.toBoolean() ?: false
+        val frontPhotoUrl = data["frontPhotoUrl"] ?: ""
+        val backPhotoUrl = data["backPhotoUrl"] ?: ""
         
         Log.d(TAG, "Notification data: lat=$latitudeStr, lon=$longitudeStr, isSelf=$isSelfAlert")
+        Log.d(TAG, "Photo URLs: front=$frontPhotoUrl, back=$backPhotoUrl")
         Log.d(TAG, "All FCM data keys: ${data.keys}")
 
         // Don't show notification for self alerts (user already knows they triggered it)
@@ -96,6 +99,8 @@ class VasateyFCMService : FirebaseMessagingService() {
             putExtra("longitude", longitudeStr)
             putExtra("alertType", alertType)
             putExtra("timestamp", timestamp)
+            putExtra("frontPhotoUrl", frontPhotoUrl)
+            putExtra("backPhotoUrl", backPhotoUrl)
             putExtra("fromNotification", true)
         }
         

@@ -29,26 +29,65 @@ object AlertManager {
         try {
             Log.d(TAG, "sendEmergencyAlert called with location: lat=$latitude, lon=$longitude, accuracy=$locationAccuracy")
             
-            // Get current user
+            // Try to get current user from Supabase auth
             val currentUser = SupabaseClient.client.auth.currentUserOrNull()
-                ?: return@withContext Result.failure(Exception("User not logged in"))
-
-            // Get user profile
-            val userProfile = SupabaseClient.client.from("users")
-                .select {
-                    filter {
-                        eq("id", currentUser.id)
+            
+            // If Supabase auth is not available (e.g., when app is closed), use SessionManager
+            val userId: String
+            val userName: String
+            val userEmail: String
+            val userPhone: String
+            
+            if (currentUser != null) {
+                // Supabase session is available
+                Log.d(TAG, "Using Supabase session for user: ${currentUser.id}")
+                userId = currentUser.id
+                
+                // Get user profile from database
+                val userProfile = SupabaseClient.client.from("users")
+                    .select {
+                        filter {
+                            eq("id", currentUser.id)
+                        }
                     }
-                }
-                .decodeSingle<UserProfile>()
+                    .decodeSingle<UserProfile>()
 
-            val userName = userProfile.name ?: "Unknown"
-            val userEmail = userProfile.email ?: ""
-            val userPhone = userProfile.phone ?: ""
+                userName = userProfile.name ?: "Unknown"
+                userEmail = userProfile.email ?: ""
+                userPhone = userProfile.phone ?: ""
+            } else {
+                // Fallback to SessionManager (for when app is closed but service is running)
+                Log.d(TAG, "Supabase session not available, using SessionManager")
+                
+                if (!SessionManager.isLoggedIn()) {
+                    return@withContext Result.failure(Exception("User not logged in"))
+                }
+                
+                userId = SessionManager.getUserId() ?: return@withContext Result.failure(Exception("User ID not found in session"))
+                userName = SessionManager.getUserName() ?: "Unknown"
+                userEmail = SessionManager.getUserEmail() ?: ""
+                
+                // Get user phone from database using userId
+                userPhone = try {
+                    val userProfile = SupabaseClient.client.from("users")
+                        .select {
+                            filter {
+                                eq("id", userId)
+                            }
+                        }
+                        .decodeSingle<UserProfile>()
+                    userProfile.phone ?: ""
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to fetch phone from database: ${e.message}")
+                    ""
+                }
+            }
+            
+            Log.d(TAG, "Sending alert for user: $userName ($userEmail)")
 
             // Create alert history record - use the model but it will skip null id
             val alertHistory = AlertHistory(
-                user_id = currentUser.id,
+                user_id = userId,
                 user_name = userName,
                 user_email = userEmail,
                 user_phone = userPhone,
@@ -80,8 +119,8 @@ object AlertManager {
 
             // Get guardians with better error handling
             val guardians = try {
-                Log.d(TAG, "Current user ID: ${currentUser.id}")
-                Log.d(TAG, "Fetching guardians for user: ${currentUser.id}")
+                Log.d(TAG, "Current user ID: $userId")
+                Log.d(TAG, "Fetching guardians for user: $userId")
                 
                 // TEST: Query ALL guardians first to see if query works
                 Log.d(TAG, "TEST: Fetching ALL guardians from database...")
@@ -110,7 +149,7 @@ object AlertManager {
                 val response = SupabaseClient.client.from("guardians")
                     .select {
                         filter {
-                            eq("user_id", currentUser.id)
+                            eq("user_id", userId)
                             eq("status", "active")
                         }
                     }
@@ -123,7 +162,7 @@ object AlertManager {
                     Log.d(TAG, "Raw result: $result")
                     Log.d(TAG, "Successfully fetched ${result.size} guardians")
                     if (result.isEmpty()) {
-                        Log.w(TAG, "Query returned empty list - no guardians found for user ${currentUser.id}")
+                        Log.w(TAG, "Query returned empty list - no guardians found for user $userId")
                     } else {
                         result.forEach { guardian ->
                             Log.d(TAG, "Guardian: ${guardian.guardian_email}, status: ${guardian.status}")

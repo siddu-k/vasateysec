@@ -131,10 +131,98 @@ class VoskWakeWordService : Service(), RecognitionListener {
     private fun triggerEmergencyAlert() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                Log.d("VoskService", "Getting location for emergency alert...")
+                Log.d("VoskService", "🚨 EMERGENCY ALERT TRIGGERED!")
                 
-                // Get current location
-                val location = LocationManager.getCurrentLocation(this@VoskWakeWordService)
+                // Check if location services are enabled
+                val locationManager = getSystemService(LOCATION_SERVICE) as? android.location.LocationManager
+                val isGpsEnabled = locationManager?.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER) ?: false
+                val isNetworkEnabled = locationManager?.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER) ?: false
+                
+                Log.d("VoskService", "GPS enabled: $isGpsEnabled, Network enabled: $isNetworkEnabled")
+                
+                if (!isGpsEnabled && !isNetworkEnabled) {
+                    Log.e("VoskService", "⚠️ LOCATION SERVICES ARE DISABLED!")
+                    launch(Dispatchers.Main) {
+                        Toast.makeText(
+                            this@VoskWakeWordService,
+                            "⚠️ Location is OFF! Enable it in Settings for accurate alerts",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+                
+                // Try to get location with multiple attempts
+                Log.d("VoskService", "📍 Getting location for emergency alert...")
+                var location: android.location.Location? = null
+                var attempts = 0
+                val maxAttempts = 3
+                
+                while (location == null && attempts < maxAttempts) {
+                    attempts++
+                    Log.d("VoskService", "📍 Location attempt $attempts/$maxAttempts...")
+                    
+                    location = LocationManager.getCurrentLocation(this@VoskWakeWordService)
+                    
+                    if (location != null) {
+                        Log.d("VoskService", "✅ Location obtained on attempt $attempts: ${location.latitude}, ${location.longitude}, accuracy: ${location.accuracy}m")
+                        
+                        // Save location to SharedPreferences for future use
+                        val prefs = getSharedPreferences("vasatey_prefs", MODE_PRIVATE)
+                        prefs.edit().apply {
+                            putString("last_known_lat", location.latitude.toString())
+                            putString("last_known_lon", location.longitude.toString())
+                            putFloat("last_known_accuracy", location.accuracy)
+                            putLong("last_known_time", location.time)
+                            apply()
+                        }
+                        Log.d("VoskService", "💾 Saved location to cache")
+                        
+                        break
+                    } else {
+                        Log.w("VoskService", "❌ Location attempt $attempts failed")
+                        if (attempts < maxAttempts) {
+                            Log.d("VoskService", "⏳ Waiting 3 seconds before retry...")
+                            kotlinx.coroutines.delay(3000) // Wait 3 seconds between attempts
+                        }
+                    }
+                }
+                
+                if (location == null) {
+                    Log.w("VoskService", "❌ Could not get fresh location, checking cached location...")
+                    
+                    // Try to use cached location from SharedPreferences
+                    val prefs = getSharedPreferences("vasatey_prefs", MODE_PRIVATE)
+                    val cachedLat = prefs.getString("last_known_lat", null)
+                    val cachedLon = prefs.getString("last_known_lon", null)
+                    val cachedTime = prefs.getLong("last_known_time", 0)
+                    
+                    if (cachedLat != null && cachedLon != null) {
+                        val age = System.currentTimeMillis() - cachedTime
+                        val ageMinutes = age / 60000
+                        Log.d("VoskService", "📦 Found cached location: $cachedLat, $cachedLon (age: $ageMinutes minutes)")
+                        
+                        // Create a Location object from cached data
+                        location = android.location.Location("cached").apply {
+                            latitude = cachedLat.toDouble()
+                            longitude = cachedLon.toDouble()
+                            accuracy = prefs.getFloat("last_known_accuracy", 0f)
+                            time = cachedTime
+                        }
+                        
+                        Log.d("VoskService", "✅ Using cached location for alert")
+                    } else {
+                        Log.e("VoskService", "❌ No cached location available, sending alert WITHOUT location")
+                        launch(Dispatchers.Main) {
+                            Toast.makeText(
+                                this@VoskWakeWordService,
+                                "⚠️ Could not get location. Alert sent without location.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+                } else {
+                    Log.d("VoskService", "✅ Will send alert WITH fresh location: ${location.latitude}, ${location.longitude}")
+                }
                 
                 Log.d("VoskService", "Sending emergency alert...")
                 
@@ -159,7 +247,7 @@ class VoskWakeWordService : Service(), RecognitionListener {
                     }
                 }
             } catch (e: Exception) {
-                Log.e("VoskService", "Error triggering emergency alert", e)
+                Log.e("VoskService", "Error triggering alert", e)
                 launch(Dispatchers.Main) {
                     showResultNotification("❌ Error", "Failed to send alert: ${e.message}")
                 }

@@ -40,12 +40,20 @@ class VasateyFCMService : FirebaseMessagingService() {
         
         Log.d(TAG, "Message received from: ${message.from}")
         
-        // Handle data payload
+        // Always handle data payload (works for both app open and closed)
+        // This ensures we show the same rich notification in both cases
         message.data.let { data ->
             if (data.isNotEmpty()) {
                 Log.d(TAG, "Message data payload: $data")
                 handleDataMessage(data)
             }
+        }
+        
+        // Also check if there's a notification payload (when app is in foreground)
+        message.notification?.let { notification ->
+            Log.d(TAG, "Message notification payload: title=${notification.title}, body=${notification.body}")
+            // We handle it via data payload above, so we can ignore this
+            // This prevents duplicate notifications
         }
     }
 
@@ -55,14 +63,19 @@ class VasateyFCMService : FirebaseMessagingService() {
         val fullName = data["fullName"] ?: ""
         val email = data["email"] ?: ""
         val phoneNumber = data["phoneNumber"] ?: ""
-        // Backend sends 'lastKnownLatitude' and 'lastKnownLongitude'
+        // Backend may send 'lastKnownLatitude'/'lastKnownLongitude' OR 'latitude'/'longitude'
         val latitudeStr = data["lastKnownLatitude"] ?: data["latitude"] ?: ""
         val longitudeStr = data["lastKnownLongitude"] ?: data["longitude"] ?: ""
+        
+        Log.d(TAG, "Raw location data from FCM: lastKnownLatitude=${data["lastKnownLatitude"]}, latitude=${data["latitude"]}")
+        Log.d(TAG, "Parsed location strings: latitudeStr='$latitudeStr', longitudeStr='$longitudeStr'")
+        
         val alertType = data["alertType"] ?: "emergency"
         val timestamp = data["timestamp"] ?: ""
         val isSelfAlert = data["isSelfAlert"]?.toBoolean() ?: false
         
         Log.d(TAG, "Notification data: lat=$latitudeStr, lon=$longitudeStr, isSelf=$isSelfAlert")
+        Log.d(TAG, "All FCM data keys: ${data.keys}")
 
         // Don't show notification for self alerts (user already knows they triggered it)
         if (isSelfAlert) {
@@ -70,10 +83,12 @@ class VasateyFCMService : FirebaseMessagingService() {
             return
         }
 
-        // Create intent to open HelpRequestActivity
-        val intent = Intent(this, HelpRequestActivity::class.java).apply {
-            // Use SINGLE_TOP to avoid clearing the activity stack
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        // Create intent to open EmergencyAlertViewerActivity - standalone, no login required
+        // Use explicit class name to ensure it opens directly
+        val intent = Intent(this, com.sriox.vasateysec.EmergencyAlertViewerActivity::class.java).apply {
+            // CLEAR_TASK removes all other activities, NEW_TASK creates new task
+            // This ensures ONLY EmergencyAlertViewerActivity opens
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             putExtra("fullName", fullName)
             putExtra("email", email)
             putExtra("phoneNumber", phoneNumber)
@@ -81,7 +96,16 @@ class VasateyFCMService : FirebaseMessagingService() {
             putExtra("longitude", longitudeStr)
             putExtra("alertType", alertType)
             putExtra("timestamp", timestamp)
+            putExtra("fromNotification", true)
         }
+        
+        Log.d(TAG, "========================================")
+        Log.d(TAG, "Creating notification with intent:")
+        Log.d(TAG, "Action: ${intent.action}")
+        Log.d(TAG, "Package: ${intent.`package`}")
+        Log.d(TAG, "Flags: ${intent.flags}")
+        Log.d(TAG, "Data: name=$fullName, lat=$latitudeStr, lon=$longitudeStr")
+        Log.d(TAG, "========================================")
 
         val pendingIntent = PendingIntent.getActivity(
             this,
@@ -89,23 +113,50 @@ class VasateyFCMService : FirebaseMessagingService() {
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        
+        Log.d(TAG, "PendingIntent created successfully")
 
-        // Build notification
+        // Build rich notification with detailed information
+        val locationText = if (latitudeStr.isNotEmpty() && longitudeStr.isNotEmpty()) {
+            "📍 Location: Lat $latitudeStr, Lon $longitudeStr"
+        } else {
+            "📍 Location: Not available"
+        }
+        
+        val detailedText = buildString {
+            append("🚨 EMERGENCY ALERT 🚨\n\n")
+            append("👤 Name: $fullName\n")
+            append("📧 Email: $email\n")
+            append("📞 Phone: $phoneNumber\n")
+            append("$locationText\n\n")
+            append("⚠️ This person needs immediate help!\n")
+            append("Tap to view details and location on map.")
+        }
+        
+        // Build notification with InboxStyle for better data display
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle(title)
-            .setContentText(body)
+            .setContentTitle("🚨 Emergency Alert from $fullName")
+            .setContentText("$fullName needs help! Tap to view location.")
             .setStyle(NotificationCompat.BigTextStyle()
-                .bigText("$body\n\nFrom: $fullName\nPhone: $phoneNumber"))
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .bigText(detailedText)
+                .setBigContentTitle("🚨 EMERGENCY ALERT")
+                .setSummaryText("Tap to respond"))
+            .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
-            .setVibrate(longArrayOf(0, 500, 200, 500))
+            .setVibrate(longArrayOf(0, 500, 200, 500, 200, 500))
+            .setSound(android.provider.Settings.System.DEFAULT_NOTIFICATION_URI)
+            .setOnlyAlertOnce(false)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setColor(android.graphics.Color.RED)
             .build()
 
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(System.currentTimeMillis().toInt(), notification)
+        
+        Log.d(TAG, "Rich notification displayed with full alert details")
     }
 
     private fun createNotificationChannel() {

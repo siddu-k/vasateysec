@@ -64,7 +64,26 @@
         <activity
             android:name=".HelpRequestActivity"
             android:exported="true"
-            android:launchMode="singleTop" />
+            android:launchMode="singleTask"
+            android:taskAffinity="">
+            <intent-filter>
+                <action android:name="com.sriox.vasateysec.SHOW_EMERGENCY_ALERT" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- Standalone Emergency Alert Viewer - No login required -->
+        <activity
+            android:name=".EmergencyAlertViewerActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:excludeFromRecents="false">
+            <intent-filter>
+                <action android:name="com.sriox.vasateysec.VIEW_EMERGENCY_ALERT" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <service
             android:name=".VoskWakeWordService"

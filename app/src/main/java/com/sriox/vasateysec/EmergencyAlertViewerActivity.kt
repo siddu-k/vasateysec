@@ -5,7 +5,6 @@ import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
@@ -13,14 +12,14 @@ import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 import com.sriox.vasateysec.databinding.ActivityHelpRequestBinding
-import com.sriox.vasateysec.utils.SessionManager
-import io.github.jan.supabase.gotrue.auth
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 
-class HelpRequestActivity : AppCompatActivity(), OnMapReadyCallback {
+/**
+ * Standalone activity to view emergency alerts from notifications
+ * Does NOT require login - works independently
+ */
+class EmergencyAlertViewerActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private lateinit var binding: ActivityHelpRequestBinding
     private var googleMap: GoogleMap? = null
@@ -33,28 +32,14 @@ class HelpRequestActivity : AppCompatActivity(), OnMapReadyCallback {
         binding = ActivityHelpRequestBinding.inflate(layoutInflater)
         setContentView(binding.root)
         
-        // Check if user is logged in using SessionManager (works when app is closed)
-        // or Supabase auth (when app is open)
-        lifecycleScope.launch {
-            val currentUser = SupabaseClient.client.auth.currentUserOrNull()
-            val hasLocalSession = SessionManager.isLoggedIn()
-            
-            if (currentUser != null) {
-                // Supabase session is available
-                Log.d("HelpRequest", "User logged in via Supabase, showing alert details")
-                setupUI()
-            } else if (hasLocalSession) {
-                // Fallback to SessionManager (when app is closed but user is logged in)
-                Log.d("HelpRequest", "User logged in via SessionManager, showing alert details")
-                setupUI()
-            } else {
-                // User not logged in at all, redirect to login
-                Log.d("HelpRequest", "User not logged in, redirecting to login")
-                val loginIntent = Intent(this@HelpRequestActivity, LoginActivity::class.java)
-                startActivity(loginIntent)
-                finish()
-            }
-        }
+        Log.d("EmergencyViewer", "========================================")
+        Log.d("EmergencyViewer", "EmergencyAlertViewerActivity CREATED!")
+        Log.d("EmergencyViewer", "Intent action: ${intent.action}")
+        Log.d("EmergencyViewer", "Intent flags: ${intent.flags}")
+        Log.d("EmergencyViewer", "========================================")
+        
+        // Load alert data directly - no login check
+        setupUI()
     }
     
     private fun setupUI() {
@@ -72,8 +57,7 @@ class HelpRequestActivity : AppCompatActivity(), OnMapReadyCallback {
         
         val timestamp = intent.getStringExtra("timestamp") ?: ""
         
-        Log.d("HelpRequest", "Received location strings: lat='$latStr', lon='$lonStr'")
-        Log.d("HelpRequest", "Converted to: lat=$latitude, lon=$longitude")
+        Log.d("EmergencyViewer", "Alert data: name=$fullName, lat=$latStr, lon=$lonStr")
 
         // Set data to views
         binding.userName.text = fullName
@@ -94,13 +78,13 @@ class HelpRequestActivity : AppCompatActivity(), OnMapReadyCallback {
             binding.alertTime.text = "Just now"
         }
 
-        // Set location coordinates - show raw values from database
+        // Set location coordinates
         if (latitude != null && longitude != null) {
             binding.locationCoordinates.text = "Lat: $latitude, Long: $longitude"
-            Log.d("HelpRequest", "Displaying location: $latitude, $longitude")
+            Log.d("EmergencyViewer", "Displaying location: $latitude, $longitude")
         } else {
             binding.locationCoordinates.text = "Location not available"
-            Log.w("HelpRequest", "No location to display")
+            Log.w("EmergencyViewer", "No location to display")
         }
 
         // Setup map
@@ -136,29 +120,21 @@ class HelpRequestActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         }
     }
-    
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        // Update the intent and reload UI when notification is clicked again
-        setIntent(intent)
-        Log.d("HelpRequest", "onNewIntent called, reloading UI")
-        setupUI()
-    }
 
     override fun onMapReady(map: GoogleMap) {
-        Log.d("HelpRequest", "onMapReady called")
+        Log.d("EmergencyViewer", "Map ready")
         googleMap = map
 
         if (latitude != null && longitude != null) {
-            Log.d("HelpRequest", "Setting map location: $latitude, $longitude")
+            Log.d("EmergencyViewer", "Setting map location: $latitude, $longitude")
             val location = LatLng(latitude!!, longitude!!)
             
             // Add marker
             googleMap?.addMarker(
                 MarkerOptions()
                     .position(location)
-                    .title("Help Request Location")
-                    .snippet("User needs assistance here")
+                    .title("Emergency Location")
+                    .snippet("Person needs help here")
             )
 
             // Move camera
@@ -170,18 +146,15 @@ class HelpRequestActivity : AppCompatActivity(), OnMapReadyCallback {
             googleMap?.uiSettings?.isZoomControlsEnabled = true
             googleMap?.uiSettings?.isMyLocationButtonEnabled = false
             
-            Log.d("HelpRequest", "Map marker and camera set successfully")
+            Log.d("EmergencyViewer", "Map configured successfully")
         } else {
-            Log.w("HelpRequest", "Cannot show map: latitude or longitude is null")
+            Log.w("EmergencyViewer", "Cannot show map: latitude or longitude is null")
         }
     }
     
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        // When back button is pressed, go to HomeActivity
-        val intent = Intent(this, HomeActivity::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        startActivity(intent)
+        // Just finish this activity
         finish()
     }
 }

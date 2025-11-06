@@ -20,10 +20,22 @@ class EditProfileActivity : AppCompatActivity() {
         binding = ActivityEditProfileBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        setSupportActionBar(binding.toolbar)
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        // setSupportActionBar(binding.toolbar) // Removed - using gradient header
+        // supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
+        setupBottomNavigation()
         loadProfile()
+        
+        // Highlight Profile nav item
+        com.sriox.vasateysec.utils.BottomNavHelper.highlightActiveItem(
+            this,
+            com.sriox.vasateysec.utils.BottomNavHelper.NavItem.PROFILE
+        )
+
+        // Back button
+        binding.backButton.setOnClickListener {
+            finish()
+        }
 
         binding.saveButton.setOnClickListener {
             val name = binding.nameInput.text.toString().trim()
@@ -32,6 +44,52 @@ class EditProfileActivity : AppCompatActivity() {
 
             if (validateInputs(name, phone, wakeWord)) {
                 updateProfile(name, phone, wakeWord)
+            }
+        }
+        
+        binding.logoutButton.setOnClickListener {
+            logout()
+        }
+    }
+    
+    private fun setupBottomNavigation() {
+        val navGuardians = findViewById<android.widget.LinearLayout>(R.id.navGuardians)
+        val navHistory = findViewById<android.widget.LinearLayout>(R.id.navHistory)
+        val sosButton = findViewById<com.google.android.material.floatingactionbutton.FloatingActionButton>(R.id.sosButton)
+        val navGhistory = findViewById<android.widget.LinearLayout>(R.id.navGhistory)
+        val navProfile = findViewById<android.widget.LinearLayout>(R.id.navProfile)
+        
+        navGuardians?.setOnClickListener {
+            startActivity(android.content.Intent(this, AddGuardianActivity::class.java))
+        }
+        navHistory?.setOnClickListener {
+            startActivity(android.content.Intent(this, AlertHistoryActivity::class.java))
+        }
+        sosButton?.setOnClickListener {
+            com.sriox.vasateysec.utils.SOSHelper.showSOSConfirmation(this)
+        }
+        navGhistory?.setOnClickListener {
+            startActivity(android.content.Intent(this, AlertHistoryActivity::class.java))
+        }
+        navProfile?.setOnClickListener { /* Already here */ }
+    }
+    
+    private fun logout() {
+        lifecycleScope.launch {
+            try {
+                // Sign out from Supabase
+                SupabaseClient.client.auth.signOut()
+                
+                // Clear local session
+                com.sriox.vasateysec.utils.SessionManager.clearSession()
+                
+                // Redirect to login
+                val intent = android.content.Intent(this@EditProfileActivity, LoginActivity::class.java)
+                intent.flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
+                startActivity(intent)
+                finish()
+            } catch (e: Exception) {
+                Toast.makeText(this@EditProfileActivity, "Logout failed: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -94,7 +152,7 @@ class EditProfileActivity : AppCompatActivity() {
     }
 
     private fun updateProfile(name: String, phone: String, wakeWord: String) {
-        binding.progressBar.visibility = View.VISIBLE
+        // binding.progressBar.visibility = View.VISIBLE // Removed from new layout
         binding.saveButton.isEnabled = false
 
         lifecycleScope.launch {
@@ -134,14 +192,15 @@ class EditProfileActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 Toast.makeText(this@EditProfileActivity, "Failed to update profile: ${e.message}", Toast.LENGTH_LONG).show()
             } finally {
-                binding.progressBar.visibility = View.GONE
+                // binding.progressBar.visibility = View.GONE // Removed from new layout
                 binding.saveButton.isEnabled = true
             }
         }
     }
 
-    override fun onSupportNavigateUp(): Boolean {
-        finish()
-        return true
-    }
+    // Removed - using back button in gradient header
+    // override fun onSupportNavigateUp(): Boolean {
+    //     finish()
+    //     return true
+    // }
 }

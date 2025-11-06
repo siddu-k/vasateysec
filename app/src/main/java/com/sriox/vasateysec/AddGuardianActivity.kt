@@ -27,13 +27,47 @@ class AddGuardianActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         setupRecyclerView()
+        setupBottomNavigation()
         loadGuardians()
+        
+        // Highlight Guardians nav item
+        com.sriox.vasateysec.utils.BottomNavHelper.highlightActiveItem(
+            this,
+            com.sriox.vasateysec.utils.BottomNavHelper.NavItem.GUARDIANS
+        )
+
+        // Back button
+        binding.backButton.setOnClickListener {
+            finish()
+        }
 
         binding.addButton.setOnClickListener {
             val email = binding.emailInput.text.toString().trim()
             if (validateEmail(email)) {
                 addGuardian(email)
             }
+        }
+    }
+    
+    private fun setupBottomNavigation() {
+        val navGuardians = findViewById<android.widget.LinearLayout>(R.id.navGuardians)
+        val navHistory = findViewById<android.widget.LinearLayout>(R.id.navHistory)
+        val sosButton = findViewById<com.google.android.material.floatingactionbutton.FloatingActionButton>(R.id.sosButton)
+        val navGhistory = findViewById<android.widget.LinearLayout>(R.id.navGhistory)
+        val navProfile = findViewById<android.widget.LinearLayout>(R.id.navProfile)
+        
+        navGuardians?.setOnClickListener { /* Already here */ }
+        navHistory?.setOnClickListener { 
+            startActivity(android.content.Intent(this, AlertHistoryActivity::class.java))
+        }
+        sosButton?.setOnClickListener {
+            com.sriox.vasateysec.utils.SOSHelper.showSOSConfirmation(this)
+        }
+        navGhistory?.setOnClickListener {
+            startActivity(android.content.Intent(this, AlertHistoryActivity::class.java))
+        }
+        navProfile?.setOnClickListener {
+            startActivity(android.content.Intent(this, EditProfileActivity::class.java))
         }
     }
 
@@ -57,7 +91,7 @@ class AddGuardianActivity : AppCompatActivity() {
     }
 
     private fun addGuardian(email: String) {
-        binding.progressBar.visibility = View.VISIBLE
+        // binding.progressBar.visibility = View.VISIBLE // Removed from new layout
         binding.addButton.isEnabled = false
 
         lifecycleScope.launch {
@@ -125,9 +159,19 @@ class AddGuardianActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 Toast.makeText(this@AddGuardianActivity, "Failed to add guardian: ${e.message}", Toast.LENGTH_LONG).show()
             } finally {
-                binding.progressBar.visibility = View.GONE
+                // binding.progressBar.visibility = View.GONE // Removed from new layout
                 binding.addButton.isEnabled = true
             }
+        }
+    }
+    
+    private fun updateEmptyState() {
+        if (guardians.isEmpty()) {
+            binding.emptyState.visibility = View.VISIBLE
+            binding.guardiansRecyclerView.visibility = View.GONE
+        } else {
+            binding.emptyState.visibility = View.GONE
+            binding.guardiansRecyclerView.visibility = View.VISIBLE
         }
     }
 
@@ -153,6 +197,7 @@ class AddGuardianActivity : AppCompatActivity() {
                 guardians.clear()
                 guardians.addAll(guardiansList)
                 guardianAdapter.notifyDataSetChanged()
+                updateEmptyState()
 
             } catch (e: Exception) {
                 Toast.makeText(this@AddGuardianActivity, "Failed to load guardians", Toast.LENGTH_SHORT).show()
@@ -197,8 +242,11 @@ class GuardianAdapter(
 
     override fun onBindViewHolder(holder: GuardianViewHolder, position: Int) {
         val guardian = guardians[position]
+        // Extract name from email (before @)
+        val name = guardian.guardian_email.substringBefore("@").replace(".", " ").split(" ")
+            .joinToString(" ") { it.replaceFirstChar { char -> char.uppercase() } }
+        holder.binding.guardianName.text = name
         holder.binding.guardianEmail.text = guardian.guardian_email
-        holder.binding.guardianStatus.text = guardian.status.capitalize()
         holder.binding.deleteButton.setOnClickListener {
             onDelete(guardian)
         }

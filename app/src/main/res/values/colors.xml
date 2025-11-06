@@ -1,5 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Sleepiest-style Color Palette -->
+    
+    <!-- Primary Dark Colors -->
+    <color name="deep_navy">#0B0E2C</color>
+    <color name="dark_purple">#1E1A39</color>
+    <color name="midnight_blue">#0F1535</color>
+    
+    <!-- Accent Colors -->
+    <color name="violet">#6C63FF</color>
+    <color name="pink">#FF6B9A</color>
+    <color name="blue">#3E5FFF</color>
+    <color name="coral">#FF6B6B</color>
+    
+    <!-- Gradient Colors -->
+    <color name="gradient_pink_start">#FF6B9A</color>
+    <color name="gradient_purple_mid">#9D4EDD</color>
+    <color name="gradient_blue_end">#3E5FFF</color>
+    
+    <!-- UI Elements -->
+    <color name="card_background">#1A1D3A</color>
+    <color name="card_elevated">#252847</color>
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#B8B8D1</color>
+    <color name="text_tertiary">#6E7191</color>
+    
+    <!-- Status Colors -->
+    <color name="success">#4ECDC4</color>
+    <color name="warning">#FFB84D</color>
+    <color name="error">#FF6B6B</color>
+    
+    <!-- Overlay & Shadow -->
+    <color name="overlay_dark">#80000000</color>
+    <color name="shadow_soft">#40000000</color>
+    <color name="glow_violet">#406C63FF</color>
+    
+    <!-- Legacy (keep for compatibility) -->
     <color name="purple_200">#FFBB86FC</color>
     <color name="purple_500">#FF6200EE</color>
     <color name="purple_700">#FF3700B3</color>

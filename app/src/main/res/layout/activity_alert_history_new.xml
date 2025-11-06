@@ -39,29 +39,16 @@
                         android:background="?attr/selectableItemBackgroundBorderless"
                         android:contentDescription="Back" />
 
-                    <LinearLayout
+                    <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="8dp">
-
-                        <ImageView
-                            android:layout_width="120dp"
-                            android:layout_height="32dp"
-                            android:src="@drawable/logo"
-                            android:scaleType="fitStart"
-                            android:adjustViewBounds="true"
-                            android:contentDescription="Vasatey Logo" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Alert History"
-                            android:textColor="@color/text_secondary"
-                            android:textSize="14sp"
-                            android:layout_marginTop="4dp" />
-                    </LinearLayout>
+                        android:text="Alert History"
+                        android:textColor="@color/text_primary"
+                        android:textSize="24sp"
+                        android:textStyle="bold"
+                        android:layout_marginStart="8dp"
+                        android:fontFamily="sans-serif-medium" />
                 </LinearLayout>
 
                 <!-- Center Content -->

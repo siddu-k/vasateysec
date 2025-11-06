@@ -35,12 +35,93 @@ class AlertHistoryActivity : AppCompatActivity() {
         binding = ActivityAlertHistoryBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        setSupportActionBar(binding.toolbar)
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        // setSupportActionBar(binding.toolbar) // Removed - using gradient header
+        // supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         setupRecyclerView()
         setupLoadMore()
+        setupBottomNavigation()
+        setupFilterButtons()
+        
+        // Highlight History nav item
+        com.sriox.vasateysec.utils.BottomNavHelper.highlightActiveItem(
+            this,
+            com.sriox.vasateysec.utils.BottomNavHelper.NavItem.HISTORY
+        )
+        
+        // Back button
+        binding.backButton.setOnClickListener {
+            finish()
+        }
+        
         loadAlerts(refresh = true)
+    }
+    
+    private fun setupBottomNavigation() {
+        val navGuardians = findViewById<android.widget.LinearLayout>(R.id.navGuardians)
+        val navHistory = findViewById<android.widget.LinearLayout>(R.id.navHistory)
+        val sosButton = findViewById<com.google.android.material.floatingactionbutton.FloatingActionButton>(R.id.sosButton)
+        val navGhistory = findViewById<android.widget.LinearLayout>(R.id.navGhistory)
+        val navProfile = findViewById<android.widget.LinearLayout>(R.id.navProfile)
+        
+        navGuardians?.setOnClickListener {
+            startActivity(Intent(this, AddGuardianActivity::class.java))
+        }
+        navHistory?.setOnClickListener { /* Already here */ }
+        sosButton?.setOnClickListener {
+            com.sriox.vasateysec.utils.SOSHelper.showSOSConfirmation(this)
+        }
+        navGhistory?.setOnClickListener { /* Already here */ }
+        navProfile?.setOnClickListener {
+            startActivity(Intent(this, EditProfileActivity::class.java))
+        }
+    }
+    
+    private fun setupFilterButtons() {
+        binding.btnAllAlerts.setOnClickListener {
+            updateFilterSelection(it.id)
+            loadAlerts(refresh = true)
+        }
+        binding.btnSentAlerts.setOnClickListener {
+            updateFilterSelection(it.id)
+            loadAlerts(refresh = true, filterSent = true)
+        }
+        binding.btnReceivedAlerts.setOnClickListener {
+            updateFilterSelection(it.id)
+            loadAlerts(refresh = true, filterReceived = true)
+        }
+    }
+    
+    private fun updateFilterSelection(selectedId: Int) {
+        // Reset all buttons
+        binding.btnAllAlerts.apply {
+            setBackgroundColor(getColor(R.color.card_elevated))
+            setTextColor(getColor(R.color.text_secondary))
+        }
+        binding.btnSentAlerts.apply {
+            setBackgroundColor(getColor(R.color.card_elevated))
+            setTextColor(getColor(R.color.text_secondary))
+        }
+        binding.btnReceivedAlerts.apply {
+            setBackgroundColor(getColor(R.color.card_elevated))
+            setTextColor(getColor(R.color.text_secondary))
+        }
+        
+        // Highlight selected
+        when (selectedId) {
+            R.id.btnAllAlerts -> binding.btnAllAlerts.apply {
+                setBackgroundColor(getColor(R.color.violet))
+                setTextColor(getColor(R.color.text_primary))
+            }
+            R.id.btnSentAlerts -> binding.btnSentAlerts.apply {
+                setBackgroundColor(getColor(R.color.violet))
+                setTextColor(getColor(R.color.text_primary))
+            }
+            R.id.btnReceivedAlerts -> binding.btnReceivedAlerts.apply {
+                setBackgroundColor(getColor(R.color.violet))
+                setTextColor(getColor(R.color.text_primary))
+            }
+        }
     }
 
     override fun onResume() {
@@ -68,7 +149,7 @@ class AlertHistoryActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadAlerts(refresh: Boolean = false) {
+    private fun loadAlerts(refresh: Boolean = false, filterSent: Boolean = false, filterReceived: Boolean = false) {
         if (isLoading) return
         
         lifecycleScope.launch {
@@ -157,9 +238,17 @@ class AlertHistoryActivity : AppCompatActivity() {
                 
                 Log.d("AlertHistory", "Sent alerts: ${sentAlerts.size}, Received alerts: ${receivedAlerts.size}")
 
-                // Combine and sort all alerts by timestamp
-                val allAlerts = (sentAlerts + receivedAlerts)
-                    .distinctBy { it.id } // Remove duplicates if any
+                // Filter based on user selection
+                val filteredAlerts = when {
+                    filterSent -> sentAlerts
+                    filterReceived -> receivedAlerts
+                    else -> (sentAlerts + receivedAlerts).distinctBy { it.id }
+                }
+                
+                Log.d("AlertHistory", "Filtered alerts: ${filteredAlerts.size} (sent=$filterSent, received=$filterReceived)")
+
+                // Sort all alerts by timestamp
+                val allAlerts = filteredAlerts
                     .sortedByDescending { it.created_at }
                     .drop(currentOffset)
                     .take(pageSize)
@@ -223,10 +312,11 @@ class AlertHistoryActivity : AppCompatActivity() {
         startActivity(intent)
     }
 
-    override fun onSupportNavigateUp(): Boolean {
-        finish()
-        return true
-    }
+    // Removed - using back button in gradient header
+    // override fun onSupportNavigateUp(): Boolean {
+    //     finish()
+    //     return true
+    // }
 }
 
 // Alert Adapter

@@ -39,29 +39,16 @@
                         android:background="?attr/selectableItemBackgroundBorderless"
                         android:contentDescription="Back" />
 
-                    <LinearLayout
+                    <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="8dp">
-
-                        <ImageView
-                            android:layout_width="120dp"
-                            android:layout_height="32dp"
-                            android:src="@drawable/logo"
-                            android:scaleType="fitStart"
-                            android:adjustViewBounds="true"
-                            android:contentDescription="Vasatey Logo" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Alert History"
-                            android:textColor="@color/text_secondary"
-                            android:textSize="14sp"
-                            android:layout_marginTop="4dp" />
-                    </LinearLayout>
+                        android:text="Guardians"
+                        android:textColor="@color/text_primary"
+                        android:textSize="24sp"
+                        android:textStyle="bold"
+                        android:layout_marginStart="8dp"
+                        android:fontFamily="sans-serif-medium" />
                 </LinearLayout>
 
                 <!-- Center Content -->
@@ -76,13 +63,13 @@
                     <ImageView
                         android:layout_width="64dp"
                         android:layout_height="64dp"
-                        android:src="@drawable/ic_history"
+                        android:src="@drawable/ic_guardian"
                         android:tint="@color/text_primary" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Your Emergency Alerts"
+                        android:text="Manage Your Guardians"
                         android:textColor="@color/text_secondary"
                         android:textSize="14sp"
                         android:layout_marginTop="8dp" />
@@ -94,96 +81,91 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="20dp"
-                android:paddingBottom="100dp">
+                android:padding="20dp">
 
-                <!-- Filter Tabs -->
+                <!-- Add Guardian Card -->
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="20dp"
+                    android:layout_marginBottom="24dp"
                     app:cardBackgroundColor="@color/card_background"
-                    app:cardCornerRadius="20dp"
-                    app:cardElevation="4dp">
+                    app:cardCornerRadius="24dp"
+                    app:cardElevation="8dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:padding="8dp">
+                        android:orientation="vertical"
+                        android:padding="24dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Add New Guardian"
+                            android:textColor="@color/text_primary"
+                            android:textSize="20sp"
+                            android:textStyle="bold"
+                            android:layout_marginBottom="16dp" />
+
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/emailInputLayout"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="Guardian Email"
+                            android:textColorHint="@color/text_secondary"
+                            app:boxBackgroundColor="@color/card_elevated"
+                            app:boxCornerRadiusTopStart="16dp"
+                            app:boxCornerRadiusTopEnd="16dp"
+                            app:boxCornerRadiusBottomStart="16dp"
+                            app:boxCornerRadiusBottomEnd="16dp"
+                            app:hintTextColor="@color/violet"
+                            app:boxStrokeColor="@color/violet"
+                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/emailInput"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="textEmailAddress"
+                                android:textColor="@color/text_primary"
+                                android:textSize="16sp" />
+                        </com.google.android.material.textfield.TextInputLayout>
 
                         <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnAllAlerts"
-                            android:layout_width="0dp"
-                            android:layout_height="48dp"
-                            android:layout_weight="1"
-                            android:text="All"
-                            android:textSize="14sp"
+                            android:id="@+id/addButton"
+                            android:layout_width="match_parent"
+                            android:layout_height="56dp"
+                            android:text="Add Guardian"
+                            android:textSize="16sp"
+                            android:textColor="@color/text_primary"
+                            android:layout_marginTop="16dp"
                             app:backgroundTint="@color/violet"
                             app:cornerRadius="16dp"
-                            style="@style/Widget.MaterialComponents.Button" />
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnSentAlerts"
-                            android:layout_width="0dp"
-                            android:layout_height="48dp"
-                            android:layout_weight="1"
-                            android:layout_marginStart="8dp"
-                            android:text="Sent"
-                            android:textSize="14sp"
-                            android:textColor="@color/text_secondary"
-                            app:backgroundTint="@android:color/transparent"
-                            app:cornerRadius="16dp"
-                            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnReceivedAlerts"
-                            android:layout_width="0dp"
-                            android:layout_height="48dp"
-                            android:layout_weight="1"
-                            android:layout_marginStart="8dp"
-                            android:text="Received"
-                            android:textSize="14sp"
-                            android:textColor="@color/text_secondary"
-                            app:backgroundTint="@android:color/transparent"
-                            app:cornerRadius="16dp"
-                            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+                            app:icon="@android:drawable/ic_input_add"
+                            app:iconTint="@color/text_primary" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
-                <!-- Alerts List -->
+                <!-- Guardians List Header -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Your Guardians"
+                    android:textColor="@color/text_primary"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="16dp" />
+
+                <!-- Guardians RecyclerView -->
                 <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/alertsRecyclerView"
+                    android:id="@+id/guardiansRecyclerView"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:clipToPadding="false" />
-
-                <!-- Load More Button -->
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/loadMoreButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:text="Load More"
-                    android:textSize="16sp"
-                    android:layout_marginTop="16dp"
-                    android:visibility="gone"
-                    app:backgroundTint="@color/card_elevated"
-                    app:cornerRadius="16dp"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
-
-                <!-- Loading Progress -->
-                <ProgressBar
-                    android:id="@+id/loadingProgress"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:layout_gravity="center"
-                    android:layout_marginTop="24dp"
-                    android:indeterminateTint="@color/violet"
-                    android:visibility="gone" />
+                    android:layout_marginBottom="100dp" />
 
                 <!-- Empty State -->
                 <LinearLayout
-                    android:id="@+id/emptyView"
+                    android:id="@+id/emptyState"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
@@ -194,23 +176,22 @@
                     <ImageView
                         android:layout_width="80dp"
                         android:layout_height="80dp"
-                        android:src="@drawable/ic_history"
+                        android:src="@drawable/ic_guardian"
                         android:tint="@color/text_tertiary"
                         android:alpha="0.5" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="No alerts yet"
+                        android:text="No guardians yet"
                         android:textColor="@color/text_secondary"
-                        android:textSize="18sp"
-                        android:textStyle="bold"
+                        android:textSize="16sp"
                         android:layout_marginTop="16dp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Your emergency alerts will appear here"
+                        android:text="Add trusted contacts to receive alerts"
                         android:textColor="@color/text_tertiary"
                         android:textSize="14sp"
                         android:layout_marginTop="8dp" />

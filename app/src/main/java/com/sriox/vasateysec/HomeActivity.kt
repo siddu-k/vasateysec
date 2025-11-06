@@ -38,9 +38,16 @@ class HomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         binding = ActivityHomeBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        setupToolbar()
-        setupNavigationDrawer()
+        // setupToolbar() // Removed - using new gradient header
+        // setupNavigationDrawer() // Removed - using bottom nav
         setupQuickActions()
+        setupBottomNavigation()
+        
+        // Highlight home (no specific nav item for home)
+        com.sriox.vasateysec.utils.BottomNavHelper.highlightActiveItem(
+            this,
+            com.sriox.vasateysec.utils.BottomNavHelper.NavItem.NONE
+        )
         
         // Ensure session is valid before loading profile
         ensureSessionValid()
@@ -84,67 +91,137 @@ class HomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         }
     }
 
-    private fun setupToolbar() {
-        // Make sure we're using the Toolbar for the ActionBar
-        setSupportActionBar(binding.toolbar)
-        
-        // Configure the ActionBar
-        supportActionBar?.apply {
-            setDisplayHomeAsUpEnabled(true)
-            setDisplayShowHomeEnabled(true)
-            setHomeButtonEnabled(true)
-            title = "Vasatey Safety"
-            
-            // Set the navigation icon
-            binding.toolbar.navigationIcon = ContextCompat.getDrawable(
-                this@HomeActivity,
-                R.drawable.ic_menu
-            )
+    // Removed - using new gradient header without toolbar
+    // private fun setupToolbar() { ... }
+
+    // Removed - using bottom navigation instead
+    // private fun setupNavigationDrawer() { ... }
+
+    private fun setupQuickActions() {
+        // Voice Alert Card Click
+        binding.voiceAlertCard.setOnClickListener {
+            requestAudioPermission()
         }
         
-        // Handle navigation icon clicks
-        binding.toolbar.setNavigationOnClickListener {
-            if (binding.drawerLayout.isDrawerOpen(GravityCompat.START)) {
-                binding.drawerLayout.closeDrawer(GravityCompat.START)
+        // Voice Alert Switch
+        binding.voiceAlertSwitch.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                requestAudioPermission()
             } else {
-                binding.drawerLayout.openDrawer(GravityCompat.START)
+                stopVoiceService()
             }
         }
         
-        // Set the title text appearance
-        binding.toolbar.setTitleTextAppearance(this, android.R.style.TextAppearance_Medium)
-        binding.toolbar.setTitleTextColor(ContextCompat.getColor(this, android.R.color.white))
-    }
-
-    private fun setupNavigationDrawer() {
-        toggle = ActionBarDrawerToggle(
-            this,
-            binding.drawerLayout,
-            binding.toolbar,
-            R.string.navigation_drawer_open,
-            R.string.navigation_drawer_close
-        )
-        binding.drawerLayout.addDrawerListener(toggle)
-        toggle.syncState()
-
-        binding.navigationView.setNavigationItemSelectedListener(this)
-    }
-
-    private fun setupQuickActions() {
-        binding.btnAddGuardian.setOnClickListener {
+        // Guardians Card
+        binding.guardiansCard.setOnClickListener {
             startActivity(Intent(this, AddGuardianActivity::class.java))
         }
-
-        binding.btnStartListening.setOnClickListener {
-            requestAudioPermission()
-        }
-
-        binding.btnAlertHistory.setOnClickListener {
+        
+        // History Card
+        binding.historyCard.setOnClickListener {
             startActivity(Intent(this, AlertHistoryActivity::class.java))
         }
-
-        binding.btnEditProfile.setOnClickListener {
+        
+        // Profile Icon
+        binding.profileIcon.setOnClickListener {
             startActivity(Intent(this, EditProfileActivity::class.java))
+        }
+    }
+    
+    private fun setupBottomNavigation() {
+        // Access bottom nav views via findViewById since they're in an included layout
+        val navGuardians = findViewById<android.widget.LinearLayout>(R.id.navGuardians)
+        val navHistory = findViewById<android.widget.LinearLayout>(R.id.navHistory)
+        val sosButton = findViewById<com.google.android.material.floatingactionbutton.FloatingActionButton>(R.id.sosButton)
+        val navGhistory = findViewById<android.widget.LinearLayout>(R.id.navGhistory)
+        val navProfile = findViewById<android.widget.LinearLayout>(R.id.navProfile)
+        
+        // Guardians
+        navGuardians?.setOnClickListener {
+            startActivity(Intent(this, AddGuardianActivity::class.java))
+        }
+        
+        // History
+        navHistory?.setOnClickListener {
+            startActivity(Intent(this, AlertHistoryActivity::class.java))
+        }
+        
+        // SOS Button (Center) - Manual Emergency Alert with Confirmation
+        sosButton?.setOnClickListener {
+            com.sriox.vasateysec.utils.SOSHelper.showSOSConfirmation(this)
+        }
+        
+        // G History (placeholder - shows received alerts)
+        navGhistory?.setOnClickListener {
+            startActivity(Intent(this, AlertHistoryActivity::class.java))
+        }
+        
+        // Profile
+        navProfile?.setOnClickListener {
+            startActivity(Intent(this, EditProfileActivity::class.java))
+        }
+    }
+    
+    private fun stopVoiceService() {
+        val serviceIntent = Intent(this, VoskWakeWordService::class.java)
+        stopService(serviceIntent)
+        Toast.makeText(this, "Voice alert stopped", Toast.LENGTH_SHORT).show()
+    }
+    
+    private fun triggerManualEmergencyAlert() {
+        lifecycleScope.launch {
+            try {
+                // Get current location
+                val locationManager = getSystemService(LOCATION_SERVICE) as android.location.LocationManager
+                
+                if (ActivityCompat.checkSelfPermission(
+                        this@HomeActivity,
+                        Manifest.permission.ACCESS_FINE_LOCATION
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    Toast.makeText(this@HomeActivity, "Location permission required", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                
+                // Try to get last known location
+                val location = locationManager.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
+                    ?: locationManager.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)
+                
+                val latitude = location?.latitude
+                val longitude = location?.longitude
+                val accuracy = location?.accuracy
+                
+                android.util.Log.d("HomeActivity", "Manual SOS: lat=$latitude, lon=$longitude, accuracy=$accuracy")
+                
+                // Send emergency alert using AlertManager
+                val result = com.sriox.vasateysec.utils.AlertManager.sendEmergencyAlert(
+                    context = this@HomeActivity,
+                    latitude = latitude,
+                    longitude = longitude,
+                    locationAccuracy = accuracy
+                )
+                
+                if (result.isSuccess) {
+                    Toast.makeText(
+                        this@HomeActivity,
+                        "✅ Emergency alert sent to guardians!",
+                        Toast.LENGTH_LONG
+                    ).show()
+                } else {
+                    Toast.makeText(
+                        this@HomeActivity,
+                        "❌ Failed to send alert: ${result.exceptionOrNull()?.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("HomeActivity", "Manual SOS failed", e)
+                Toast.makeText(
+                    this@HomeActivity,
+                    "❌ Error: ${e.message}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
         }
     }
 
@@ -165,12 +242,12 @@ class HomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                     val userEmail = userProfile["email"] ?: ""
                     val wakeWord = userProfile["wake_word"] ?: "help me"
 
-                    binding.welcomeText.text = "Welcome, $userName"
+                    binding.userNameText.text = "Welcome back, $userName"
 
-                    // Update navigation header
-                    val headerView = binding.navigationView.getHeaderView(0)
-                    headerView.findViewById<TextView>(R.id.navHeaderName).text = userName
-                    headerView.findViewById<TextView>(R.id.navHeaderEmail).text = userEmail
+                    // Navigation drawer removed - using bottom nav now
+                    // val headerView = binding.navigationView.getHeaderView(0)
+                    // headerView.findViewById<TextView>(R.id.navHeaderName).text = userName
+                    // headerView.findViewById<TextView>(R.id.navHeaderEmail).text = userEmail
                     
                     // Save wake word to SharedPreferences for VoskService
                     getSharedPreferences("vasatey_prefs", MODE_PRIVATE).edit()
@@ -224,7 +301,7 @@ class HomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 logout()
             }
         }
-        binding.drawerLayout.closeDrawer(GravityCompat.START)
+        // binding.drawerLayout.closeDrawer(GravityCompat.START) // Removed drawer
         return true
     }
 
@@ -355,11 +432,13 @@ class HomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         }
     }
 
+    @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (binding.drawerLayout.isDrawerOpen(GravityCompat.START)) {
-            binding.drawerLayout.closeDrawer(GravityCompat.START)
-        } else {
+        // Drawer removed - using bottom nav
+        // if (binding.drawerLayout.isDrawerOpen(GravityCompat.START)) {
+        //     binding.drawerLayout.closeDrawer(GravityCompat.START)
+        // } else {
             super.onBackPressed()
-        }
+        // }
     }
 }

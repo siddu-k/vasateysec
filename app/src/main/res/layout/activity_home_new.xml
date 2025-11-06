@@ -32,14 +32,15 @@
                     android:padding="20dp"
                     android:gravity="center_vertical">
 
-                    <ImageView
+                    <TextView
                         android:layout_width="0dp"
-                        android:layout_height="40dp"
+                        android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:src="@drawable/logo"
-                        android:scaleType="fitStart"
-                        android:adjustViewBounds="true"
-                        android:contentDescription="Vasatey Logo" />
+                        android:text="Vasatey"
+                        android:textColor="@color/text_primary"
+                        android:textSize="24sp"
+                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium" />
 
                     <ImageView
                         android:id="@+id/profileIcon"

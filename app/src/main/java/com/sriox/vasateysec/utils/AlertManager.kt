@@ -179,6 +179,9 @@ object AlertManager {
                 ?: return@withContext Result.failure(Exception("Alert created but no ID returned"))
             
             Log.d(TAG, "Alert created with ID: $alertId, returned location: lat=${insertedAlert.latitude}, lon=${insertedAlert.longitude}")
+            
+            // Clean up old alerts - keep only 10 most recent per user
+            cleanupOldAlerts(userId)
 
             // Get guardians with better error handling
             val guardians = try {
@@ -479,6 +482,64 @@ object AlertManager {
                 Log.e(TAG, "========================================")
                 return@withContext null
             }
+        }
+    }
+    
+    /**
+     * Clean up old alerts - keep only 10 most recent per user
+     */
+    private suspend fun cleanupOldAlerts(userId: String) {
+        try {
+            Log.d(TAG, "Cleaning up old alerts for user: $userId")
+            
+            // Get all alerts for this user, sorted by created_at descending
+            val allAlerts = SupabaseClient.client.from("alert_history")
+                .select {
+                    filter {
+                        eq("user_id", userId)
+                    }
+                }
+                .decodeList<AlertHistory>()
+                .sortedByDescending { it.created_at }
+            
+            Log.d(TAG, "User has ${allAlerts.size} total alerts")
+            
+            // If more than 10, delete the oldest ones
+            if (allAlerts.size > 10) {
+                val alertsToDelete = allAlerts.drop(10) // Keep first 10 (newest), delete rest
+                Log.d(TAG, "Deleting ${alertsToDelete.size} old alerts")
+                
+                alertsToDelete.forEach { alert ->
+                    try {
+                        alert.id?.let { alertId ->
+                            // Delete alert recipients first (foreign key constraint)
+                            SupabaseClient.client.from("alert_recipients").delete {
+                                filter {
+                                    eq("alert_id", alertId)
+                                }
+                            }
+                            
+                            // Delete the alert
+                            SupabaseClient.client.from("alert_history").delete {
+                                filter {
+                                    eq("id", alertId)
+                                }
+                            }
+                            
+                            Log.d(TAG, "Deleted old alert: $alertId")
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to delete alert ${alert.id}: ${e.message}")
+                    }
+                }
+                
+                Log.d(TAG, "✅ Cleanup complete! Kept 10 most recent alerts")
+            } else {
+                Log.d(TAG, "No cleanup needed - user has ${allAlerts.size} alerts (≤10)")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to cleanup old alerts: ${e.message}", e)
+            // Don't fail the main alert - just log the error
         }
     }
 }

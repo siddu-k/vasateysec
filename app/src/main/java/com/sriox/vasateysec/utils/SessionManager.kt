@@ -25,24 +25,19 @@ object SessionManager {
      * Initialize the session manager with encrypted shared preferences
      */
     fun initialize(context: Context) {
+        // ALWAYS use standard SharedPreferences (not encrypted) for reliability
+        // EncryptedSharedPreferences has issues in release builds
         try {
-            val masterKey = MasterKey.Builder(context)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build()
-            
-            prefs = EncryptedSharedPreferences.create(
-                context,
-                PREFS_NAME,
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            )
-            
-            Log.d(TAG, "SessionManager initialized with encrypted storage")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to initialize encrypted preferences, falling back to standard", e)
-            // Fallback to standard SharedPreferences if encryption fails
+            Log.d(TAG, "Initializing SessionManager with standard SharedPreferences...")
             prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            Log.d(TAG, "SessionManager initialized successfully")
+            Log.d(TAG, "Current session state - isLoggedIn: ${isLoggedIn()}, userId: ${getUserId()}")
+        } catch (e: Exception) {
+            Log.e(TAG, "CRITICAL: Failed to initialize SessionManager", e)
+            Log.e(TAG, "Error type: ${e.javaClass.name}, message: ${e.message}")
+            // Last resort fallback
+            prefs = context.getSharedPreferences("vasatey_backup_prefs", Context.MODE_PRIVATE)
+            Log.d(TAG, "Using backup prefs - isLoggedIn: ${isLoggedIn()}, userId: ${getUserId()}")
         }
     }
     
@@ -50,6 +45,7 @@ object SessionManager {
      * Save user session
      */
     fun saveSession(userId: String, email: String, name: String) {
+        Log.d(TAG, "Saving session for user: $email (ID: $userId)")
         prefs.edit().apply {
             putString(KEY_USER_ID, userId)
             putString(KEY_USER_EMAIL, email)
@@ -58,7 +54,7 @@ object SessionManager {
             putLong(KEY_LAST_LOGIN, System.currentTimeMillis())
             apply()
         }
-        Log.d(TAG, "Session saved for user: $email")
+        Log.d(TAG, "Session saved successfully. Verification - isLoggedIn: ${isLoggedIn()}, userId: ${getUserId()}")
     }
     
     /**
@@ -67,7 +63,9 @@ object SessionManager {
     fun isLoggedIn(): Boolean {
         val isLoggedIn = prefs.getBoolean(KEY_IS_LOGGED_IN, false)
         val userId = prefs.getString(KEY_USER_ID, null)
-        return isLoggedIn && !userId.isNullOrEmpty()
+        val result = isLoggedIn && !userId.isNullOrEmpty()
+        Log.d(TAG, "isLoggedIn check: $result (flag: $isLoggedIn, userId: ${userId?.take(8)}...)")
+        return result
     }
     
     /**

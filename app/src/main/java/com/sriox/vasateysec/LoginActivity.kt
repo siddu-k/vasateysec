@@ -9,6 +9,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.sriox.vasateysec.databinding.ActivityLoginBinding
 import com.sriox.vasateysec.utils.SessionManager
+import com.sriox.vasateysec.utils.FCMTokenManager
 import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.gotrue.providers.builtin.Email
 import io.github.jan.supabase.postgrest.from
@@ -100,6 +101,11 @@ class LoginActivity : AppCompatActivity() {
                 )
                 
                 Log.d(TAG, "Session saved successfully")
+                
+                // CRITICAL: Update FCM token immediately after login
+                // This ensures the latest token is saved when switching between debug/release APKs
+                Log.d(TAG, "Initializing FCM token after login...")
+                FCMTokenManager.initializeFCM(this@LoginActivity)
 
                 Toast.makeText(
                     this@LoginActivity,

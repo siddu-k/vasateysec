@@ -40,85 +40,53 @@ object FCMTokenManager {
     fun updateFCMToken(context: Context, token: String) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                Log.d(TAG, "========================================")
+                Log.d(TAG, "🔄 Updating FCM Token...")
+                Log.d(TAG, "Token: ${token.take(30)}...")
+                
                 val currentUser = SupabaseClient.client.auth.currentUserOrNull()
                 if (currentUser == null) {
-                    Log.w(TAG, "No user logged in, cannot save FCM token")
+                    Log.w(TAG, "❌ No user logged in, cannot save FCM token")
                     return@launch
                 }
 
+                Log.d(TAG, "✅ User logged in: ${currentUser.id}")
                 val deviceId = getDeviceId(context)
                 val deviceName = getDeviceName()
+                Log.d(TAG, "📱 Device: $deviceName ($deviceId)")
 
                 // Save token locally
                 saveTokenLocally(context, token)
+                Log.d(TAG, "💾 Token saved locally")
 
-                // Check if this specific token already exists BEFORE deleting
-                val existingTokens = try {
-                    SupabaseClient.client.from("fcm_tokens")
-                        .select {
-                            filter {
-                                eq("token", token)
-                            }
-                        }
-                        .decodeList<FCMToken>()
-                } catch (e: Exception) {
-                    Log.w(TAG, "No existing tokens found or error checking: ${e.message}")
-                    emptyList()
-                }
-
-                if (existingTokens.isEmpty()) {
-                    // Token doesn't exist - delete old tokens and insert new one
-                    try {
-                        SupabaseClient.client.from("fcm_tokens").delete {
-                            filter {
-                                eq("user_id", currentUser.id)
-                            }
-                        }
-                        Log.d(TAG, "Deleted all old tokens for user")
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Error deleting old tokens: ${e.message}")
-                    }
-
-                    // Insert new token as active
-                    val fcmToken = FCMToken(
-                        user_id = currentUser.id,
-                        token = token,
-                        device_id = deviceId,
-                        device_name = deviceName,
-                        platform = "android",
-                        is_active = true
-                    )
-
-                    SupabaseClient.client.from("fcm_tokens").insert(fcmToken)
-                    Log.d(TAG, "New FCM token saved to Supabase")
-                } else {
-                    // Token already exists - just update it (no need to delete and re-insert)
-                    SupabaseClient.client.from("fcm_tokens").update({
-                        set("user_id", currentUser.id)
-                        set("device_id", deviceId)
-                        set("device_name", deviceName)
-                        set("is_active", true)
-                        set("last_used_at", "now()")
-                    }) {
+                // ALWAYS delete ALL old tokens for this user first (clean slate)
+                Log.d(TAG, "🗑️ Deleting ALL old tokens for user...")
+                try {
+                    val deletedCount = SupabaseClient.client.from("fcm_tokens").delete {
                         filter {
-                            eq("token", token)
+                            eq("user_id", currentUser.id)
                         }
                     }
-                    Log.d(TAG, "Existing FCM token updated in Supabase")
-                    
-                    // Also delete any OTHER old tokens for this user (keep only the current one)
-                    try {
-                        SupabaseClient.client.from("fcm_tokens").delete {
-                            filter {
-                                eq("user_id", currentUser.id)
-                                neq("token", token)
-                            }
-                        }
-                        Log.d(TAG, "Deleted other old tokens for user")
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Error deleting other old tokens: ${e.message}")
-                    }
+                    Log.d(TAG, "✅ Deleted all old tokens for user")
+                } catch (e: Exception) {
+                    Log.w(TAG, "⚠️ Error deleting old tokens (may not exist): ${e.message}")
                 }
+
+                // Insert the new token as the ONLY active token
+                Log.d(TAG, "💾 Inserting new FCM token...")
+                val fcmToken = FCMToken(
+                    user_id = currentUser.id,
+                    token = token,
+                    device_id = deviceId,
+                    device_name = deviceName,
+                    platform = "android",
+                    is_active = true
+                )
+
+                SupabaseClient.client.from("fcm_tokens").insert(fcmToken)
+                Log.d(TAG, "✅ New FCM token saved to Supabase")
+                Log.d(TAG, "========================================")
+                Log.d(TAG, "✅ FCM Token update complete!")
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to save FCM token to Supabase", e)
             }

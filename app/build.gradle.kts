@@ -17,6 +17,16 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        // Disable ALL compression in APK
+        packaging {
+            jniLibs {
+                useLegacyPackaging = true
+            }
+            resources {
+                excludes += listOf("/META-INF/{AL2.0,LGPL2.1}")
+            }
+        }
     }
 
     signingConfigs {
@@ -30,29 +40,45 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false  // Disable ProGuard
-            isShrinkResources = false  // Disable resource shrinking
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+            // COMPLETELY DISABLE ProGuard/R8 - No code obfuscation/optimization
+            isMinifyEnabled = false
+            isShrinkResources = false
+            isDebuggable = true  // Keep debug info like debug build
+            isJniDebuggable = true  // Keep JNI debug symbols
+            
             signingConfig = signingConfigs.getByName("release")
-            // Disable compression for all files in the APK
+            
+            // Disable ALL compression and optimization
+            isCrunchPngs = false  // Don't optimize PNGs
+            
+            // Keep native debug symbols (don't strip)
+            ndk {
+                debugSymbolLevel = "FULL"  // Keep all debug symbols
+            }
+            
+            // Disable ALL compression in APK
             packaging {
                 resources {
                     excludes += "/META-INF/{AL2.0,LGPL2.1}"
-                    excludes += "**/*.so"
-                    excludes += "META-INF/*"
-                    excludes += "META-INF/NOTICE"
-                    excludes += "META-INF/LICENSE"
-                    excludes += "META-INF/LICENSE.txt"
-                    excludes += "META-INF/NOTICE.txt"
                 }
                 jniLibs {
-                    useLegacyPackaging = true  // Prevents compression of .so files
+                    useLegacyPackaging = true  // No compression for native libraries
+                    keepDebugSymbols += listOf("**/*.so")  // Keep all .so debug symbols
+                }
+                dex {
+                    useLegacyPackaging = true  // No compression for DEX files
                 }
             }
         }
+        debug {
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
+    }
+    
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8

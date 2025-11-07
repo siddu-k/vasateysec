@@ -229,6 +229,11 @@ class VoskWakeWordService : Service(), RecognitionListener {
                 Log.d("VoskService", "📸 Capturing emergency photos...")
                 Log.d("VoskService", "========================================")
                 
+                // Show progress notification
+                launch(Dispatchers.Main) {
+                    showResultNotification("📸 Capturing Photos", "Taking emergency photos from both cameras...")
+                }
+                
                 // Capture photos from both cameras
                 val photos = CameraManager.captureEmergencyPhotos(this@VoskWakeWordService)
                 
@@ -239,6 +244,11 @@ class VoskWakeWordService : Service(), RecognitionListener {
                 Log.d("VoskService", "========================================")
                 
                 Log.d("VoskService", "Sending emergency alert...")
+                
+                // Show uploading notification
+                launch(Dispatchers.Main) {
+                    showResultNotification("📤 Uploading Data", "Uploading photos and sending alert to guardians...")
+                }
                 
                 // Send alert to guardians with photos
                 val result = AlertManager.sendEmergencyAlert(

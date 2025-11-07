@@ -292,6 +292,8 @@ object AlertManager {
 
             // Send notifications to each guardian (NOT to self)
             var successCount = 0
+            var failedCount = 0
+            val failedGuardians = mutableListOf<String>()
             
             // Process each guardian token
             for ((guardianUserId, tokenInfo) in guardianTokens) {
@@ -327,6 +329,8 @@ object AlertManager {
                     successCount++
                     Log.d(TAG, "Successfully sent notification to guardian: $guardianEmail")
                 } else {
+                    failedCount++
+                    failedGuardians.add(guardianEmail)
                     Log.e(TAG, "Failed to send notification to guardian: $guardianEmail")
                 }
             }
@@ -354,10 +358,22 @@ object AlertManager {
                 }
             }
 
-            if (successCount > 0) {
-                Result.success("Alert sent to $successCount recipient(s)")
-            } else {
-                Result.failure(Exception("Failed to send alerts to any recipients"))
+            // Return result based on success/failure counts
+            when {
+                successCount > 0 && failedCount == 0 -> {
+                    Log.d(TAG, "✅ Alert sent successfully to all $successCount guardian(s)")
+                    Result.success("Alert sent to $successCount guardian(s)")
+                }
+                successCount > 0 && failedCount > 0 -> {
+                    Log.w(TAG, "⚠️ Alert sent to $successCount guardian(s), but failed for $failedCount guardian(s)")
+                    Log.w(TAG, "Failed guardians: ${failedGuardians.joinToString()}")
+                    // Still return success since at least one guardian was notified
+                    Result.success("Alert sent to $successCount guardian(s). Failed to reach $failedCount guardian(s) - they may need to reinstall the app.")
+                }
+                else -> {
+                    Log.e(TAG, "❌ Failed to send alerts to any guardians")
+                    Result.failure(Exception("Failed to send alerts to any recipients. Guardians may need to reinstall the app."))
+                }
             }
 
         } catch (e: Exception) {
@@ -368,6 +384,7 @@ object AlertManager {
 
     /**
      * Send notification via Vercel endpoint
+     * Returns true if successful, false if failed
      */
     @Suppress("DEPRECATION")
     private suspend fun sendNotificationToSupabase(
@@ -431,6 +448,21 @@ object AlertManager {
                 } else {
                     Log.e(TAG, "Failed to send notification to guardian $guardianEmail. Status: ${response.code}")
                     Log.e(TAG, "Response: $responseBody")
+                    
+                    // Check if the error is due to invalid/unregistered token
+                    if (responseBody?.contains("registration-token-not-registered") == true ||
+                        responseBody?.contains("Requested entity was not found") == true) {
+                        Log.w(TAG, "Invalid FCM token detected for $guardianEmail - removing from database")
+                        
+                        // Deactivate the invalid token
+                        try {
+                            FCMTokenManager.deactivateInvalidToken(token)
+                            Log.d(TAG, "Successfully removed invalid token for $guardianEmail")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to remove invalid token", e)
+                        }
+                    }
+                    
                     false
                 }
             } catch (e: Exception) {

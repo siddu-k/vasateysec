@@ -52,19 +52,7 @@ object FCMTokenManager {
                 // Save token locally
                 saveTokenLocally(context, token)
 
-                // First, DELETE ALL old tokens for this user to keep database clean
-                try {
-                    SupabaseClient.client.from("fcm_tokens").delete {
-                        filter {
-                            eq("user_id", currentUser.id)
-                        }
-                    }
-                    Log.d(TAG, "Deleted all old tokens for user")
-                } catch (e: Exception) {
-                    Log.w(TAG, "Error deleting old tokens: ${e.message}")
-                }
-
-                // Check if this specific token already exists
+                // Check if this specific token already exists BEFORE deleting
                 val existingTokens = try {
                     SupabaseClient.client.from("fcm_tokens")
                         .select {
@@ -79,6 +67,18 @@ object FCMTokenManager {
                 }
 
                 if (existingTokens.isEmpty()) {
+                    // Token doesn't exist - delete old tokens and insert new one
+                    try {
+                        SupabaseClient.client.from("fcm_tokens").delete {
+                            filter {
+                                eq("user_id", currentUser.id)
+                            }
+                        }
+                        Log.d(TAG, "Deleted all old tokens for user")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Error deleting old tokens: ${e.message}")
+                    }
+
                     // Insert new token as active
                     val fcmToken = FCMToken(
                         user_id = currentUser.id,
@@ -92,7 +92,7 @@ object FCMTokenManager {
                     SupabaseClient.client.from("fcm_tokens").insert(fcmToken)
                     Log.d(TAG, "New FCM token saved to Supabase")
                 } else {
-                    // Reactivate this existing token
+                    // Token already exists - just update it (no need to delete and re-insert)
                     SupabaseClient.client.from("fcm_tokens").update({
                         set("user_id", currentUser.id)
                         set("device_id", deviceId)
@@ -104,7 +104,20 @@ object FCMTokenManager {
                             eq("token", token)
                         }
                     }
-                    Log.d(TAG, "Existing FCM token reactivated in Supabase")
+                    Log.d(TAG, "Existing FCM token updated in Supabase")
+                    
+                    // Also delete any OTHER old tokens for this user (keep only the current one)
+                    try {
+                        SupabaseClient.client.from("fcm_tokens").delete {
+                            filter {
+                                eq("user_id", currentUser.id)
+                                neq("token", token)
+                            }
+                        }
+                        Log.d(TAG, "Deleted other old tokens for user")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Error deleting other old tokens: ${e.message}")
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to save FCM token to Supabase", e)
@@ -223,6 +236,26 @@ object FCMTokenManager {
 
     private fun getDeviceName(): String {
         return "${Build.MANUFACTURER} ${Build.MODEL}"
+    }
+    
+    /**
+     * Deactivate a specific invalid FCM token
+     */
+    suspend fun deactivateInvalidToken(token: String) {
+        try {
+            Log.w(TAG, "Deactivating invalid FCM token: ${token.take(20)}...")
+            
+            // Delete the invalid token from database
+            SupabaseClient.client.from("fcm_tokens").delete {
+                filter {
+                    eq("token", token)
+                }
+            }
+            
+            Log.d(TAG, "Invalid FCM token removed from database")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to deactivate invalid token", e)
+        }
     }
     
     /**

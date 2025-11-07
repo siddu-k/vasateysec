@@ -57,6 +57,9 @@ class HomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         // Initialize FCM
         FCMTokenManager.initializeFCM(this)
         
+        // Restore voice alert switch state
+        restoreVoiceAlertState()
+        
         // Request all necessary permissions
         requestAllPermissions()
     }
@@ -100,11 +103,14 @@ class HomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private fun setupQuickActions() {
         // Voice Alert Card Click
         binding.voiceAlertCard.setOnClickListener {
-            requestAudioPermission()
+            binding.voiceAlertSwitch.isChecked = !binding.voiceAlertSwitch.isChecked
         }
         
         // Voice Alert Switch
         binding.voiceAlertSwitch.setOnCheckedChangeListener { _, isChecked ->
+            // Save state to SharedPreferences
+            saveVoiceAlertState(isChecked)
+            
             if (isChecked) {
                 requestAudioPermission()
             } else {
@@ -160,6 +166,34 @@ class HomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         navProfile?.setOnClickListener {
             startActivity(Intent(this, EditProfileActivity::class.java))
         }
+    }
+    
+    private fun saveVoiceAlertState(isEnabled: Boolean) {
+        getSharedPreferences("vasatey_prefs", MODE_PRIVATE).edit()
+            .putBoolean("voice_alert_enabled", isEnabled)
+            .apply()
+        android.util.Log.d("HomeActivity", "Voice alert state saved: $isEnabled")
+    }
+    
+    private fun restoreVoiceAlertState() {
+        val isEnabled = getSharedPreferences("vasatey_prefs", MODE_PRIVATE)
+            .getBoolean("voice_alert_enabled", false)
+        
+        // Set switch state without triggering the listener
+        binding.voiceAlertSwitch.setOnCheckedChangeListener(null)
+        binding.voiceAlertSwitch.isChecked = isEnabled
+        
+        // Re-attach the listener after setting the state
+        binding.voiceAlertSwitch.setOnCheckedChangeListener { _, checked ->
+            saveVoiceAlertState(checked)
+            if (checked) {
+                requestAudioPermission()
+            } else {
+                stopVoiceService()
+            }
+        }
+        
+        android.util.Log.d("HomeActivity", "Voice alert state restored: $isEnabled")
     }
     
     private fun stopVoiceService() {

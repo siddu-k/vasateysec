@@ -19,13 +19,39 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("../vasateysec-release.jks")
+            storePassword = "vasatey123"
+            keyAlias = "vasateysec"
+            keyPassword = "vasatey123"
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = false  // Disable ProGuard
+            isShrinkResources = false  // Disable resource shrinking
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
+            // Disable compression for all files in the APK
+            packaging {
+                resources {
+                    excludes += "/META-INF/{AL2.0,LGPL2.1}"
+                    excludes += "**/*.so"
+                    excludes += "META-INF/*"
+                    excludes += "META-INF/NOTICE"
+                    excludes += "META-INF/LICENSE"
+                    excludes += "META-INF/LICENSE.txt"
+                    excludes += "META-INF/NOTICE.txt"
+                }
+                jniLibs {
+                    useLegacyPackaging = true  // Prevents compression of .so files
+                }
+            }
         }
     }
     compileOptions {

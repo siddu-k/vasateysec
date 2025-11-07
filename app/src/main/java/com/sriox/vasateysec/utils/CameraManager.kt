@@ -20,6 +20,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -31,7 +32,8 @@ import kotlin.coroutines.resume
 
 object CameraManager {
     private const val TAG = "CameraManager"
-    private const val CAPTURE_TIMEOUT_MS = 5000L
+    private const val CAPTURE_TIMEOUT_MS = 10000L // Increased to 10 seconds
+    private const val CAMERA_DELAY_MS = 4000L // 4 second delay between cameras to ensure cleanup
     
     data class CapturedPhotos(
         val frontPhoto: File?,
@@ -60,17 +62,23 @@ object CameraManager {
         var backPhoto: File? = null
         
         try {
-            // Capture from front camera
+            // Capture from FRONT camera FIRST (try this order for better compatibility)
+            Log.d(TAG, "📸 Step 1: Capturing from FRONT camera...")
             frontPhoto = captureFromCamera(context, CameraCharacteristics.LENS_FACING_FRONT)
-            Log.d(TAG, "Front camera: ${if (frontPhoto != null) "✅ Success" else "❌ Failed"}")
+            if (frontPhoto != null) {
+                Log.d(TAG, "Front camera: ✅ Success (${frontPhoto.length()} bytes)")
+            } else {
+                Log.e(TAG, "Front camera: ❌ Failed - returned null (timeout or capture error)")
+            }
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Front camera error: ${e.message}", e)
+            Log.e(TAG, "❌ Front camera exception: ${e.javaClass.simpleName} - ${e.message}", e)
         }
         
         try {
-            // Capture from back camera
+            // Capture from BACK camera SECOND (after front camera is closed)
+            Log.d(TAG, "📸 Step 2: Capturing from BACK camera...")
             backPhoto = captureFromCamera(context, CameraCharacteristics.LENS_FACING_BACK)
-            Log.d(TAG, "Back camera: ${if (backPhoto != null) "✅ Success" else "❌ Failed"}")
+            Log.d(TAG, "Back camera: ${if (backPhoto != null) "✅ Success (${backPhoto.length()} bytes)" else "❌ Failed"}")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Back camera error: ${e.message}", e)
         }
@@ -79,32 +87,75 @@ object CameraManager {
         return@withContext CapturedPhotos(frontPhoto, backPhoto)
     }
     
+    data class CameraCapture(
+        val bitmap: Bitmap?,
+        val closeSignal: CompletableDeferred<Unit>
+    )
+    
     /**
      * Capture photo from specific camera
      */
     private suspend fun captureFromCamera(context: Context, lensFacing: Int): File? {
+        val cameraName = if (lensFacing == CameraCharacteristics.LENS_FACING_FRONT) "FRONT" else "BACK"
+        
         return withTimeoutOrNull(CAPTURE_TIMEOUT_MS) {
             try {
+                Log.d(TAG, "[$cameraName] Step 1: Getting camera manager...")
                 val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as AndroidCameraManager
-                val cameraId = getCameraId(cameraManager, lensFacing) ?: return@withTimeoutOrNull null
                 
-                Log.d(TAG, "📷 Capturing from ${if (lensFacing == CameraCharacteristics.LENS_FACING_FRONT) "front" else "back"} camera...")
+                Log.d(TAG, "[$cameraName] Step 2: Finding camera ID...")
+                val cameraId = getCameraId(cameraManager, lensFacing)
+                if (cameraId == null) {
+                    Log.e(TAG, "[$cameraName] ❌ No camera found with lens facing: $lensFacing")
+                    return@withTimeoutOrNull null
+                }
+                Log.d(TAG, "[$cameraName] ✅ Found camera ID: $cameraId")
                 
+                Log.d(TAG, "[$cameraName] Step 3: Creating image file...")
                 val imageFile = createImageFile(context, lensFacing)
-                val bitmap = captureImage(context, cameraManager, cameraId, lensFacing)
+                Log.d(TAG, "[$cameraName] ✅ Image file created: ${imageFile.absolutePath}")
                 
-                if (bitmap != null) {
-                    saveBitmapToFile(bitmap, imageFile)
-                    Log.d(TAG, "✅ Saved ${if (lensFacing == CameraCharacteristics.LENS_FACING_FRONT) "front" else "back"} photo: ${imageFile.absolutePath}")
+                Log.d(TAG, "[$cameraName] Step 4: Capturing image (timeout: ${CAPTURE_TIMEOUT_MS}ms)...")
+                val capture = captureImage(context, cameraManager, cameraId, lensFacing)
+                
+                if (capture.bitmap != null) {
+                    Log.d(TAG, "[$cameraName] ✅ Bitmap captured: ${capture.bitmap.width}x${capture.bitmap.height}")
+                    Log.d(TAG, "[$cameraName] Step 5: Saving to file...")
+                    saveBitmapToFile(capture.bitmap, imageFile)
+                    Log.d(TAG, "[$cameraName] ✅ SUCCESS - Photo saved: ${imageFile.length()} bytes")
+                    
+                    // CRITICAL: Wait for camera to actually close before returning
+                    Log.d(TAG, "[$cameraName] Step 6: Waiting for camera to ACTUALLY close (onClosed callback)...")
+                    val closed = withTimeoutOrNull(5000L) {
+                        capture.closeSignal.await()
+                        true
+                    }
+                    
+                    if (closed == true) {
+                        Log.d(TAG, "[$cameraName] ✅ Camera CONFIRMED closed via onClosed callback")
+                    } else {
+                        Log.w(TAG, "[$cameraName] ⚠️ Camera close timeout after 5s - adding extra safety delay")
+                        // If onClosed didn't fire, add extra delay for hardware to release
+                        kotlinx.coroutines.delay(2000L)
+                        Log.d(TAG, "[$cameraName] ✅ Safety delay complete - proceeding")
+                    }
+                    
                     return@withTimeoutOrNull imageFile
                 } else {
-                    Log.w(TAG, "⚠️ Failed to capture from ${if (lensFacing == CameraCharacteristics.LENS_FACING_FRONT) "front" else "back"} camera")
+                    Log.e(TAG, "[$cameraName] ❌ FAILED - Bitmap is null (camera capture failed)")
+                    // Still wait for close signal even on failure
+                    withTimeoutOrNull(1000L) {
+                        capture.closeSignal.await()
+                    }
                     return@withTimeoutOrNull null
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error capturing photo: ${e.message}", e)
+                Log.e(TAG, "[$cameraName] ❌ EXCEPTION: ${e.javaClass.simpleName} - ${e.message}", e)
                 return@withTimeoutOrNull null
             }
+        } ?: run {
+            Log.e(TAG, "[$cameraName] ❌ TIMEOUT after ${CAPTURE_TIMEOUT_MS}ms")
+            null
         }
     }
     
@@ -116,7 +167,8 @@ object CameraManager {
         cameraManager: AndroidCameraManager,
         cameraId: String,
         lensFacing: Int
-    ): Bitmap? = suspendCancellableCoroutine { continuation ->
+    ): CameraCapture = suspendCancellableCoroutine { continuation ->
+        val cameraClosedSignal = CompletableDeferred<Unit>()
         var resumed = false
         
         try {
@@ -145,7 +197,7 @@ object CameraManager {
                         if (!resumed) {
                             resumed = true
                             handlerThread.quitSafely()
-                            continuation.resume(bitmap)
+                            continuation.resume(CameraCapture(bitmap, cameraClosedSignal))
                         }
                     }
                 } catch (e: Exception) {
@@ -153,7 +205,8 @@ object CameraManager {
                     if (!resumed) {
                         resumed = true
                         handlerThread.quitSafely()
-                        continuation.resume(null)
+                        cameraClosedSignal.complete(Unit)
+                        continuation.resume(CameraCapture(null, cameraClosedSignal))
                     }
                 }
             }, backgroundHandler)
@@ -163,8 +216,10 @@ object CameraManager {
                 if (!resumed) {
                     resumed = true
                     handlerThread.quitSafely()
-                    continuation.resume(null)
+                    continuation.resume(CameraCapture(null, cameraClosedSignal))
                 }
+                cameraClosedSignal.complete(Unit)
+                // Don't complete cameraClosedSignal here - wait for onClosed callback
                 return@suspendCancellableCoroutine
             }
             
@@ -187,8 +242,15 @@ object CameraManager {
                                                 result: TotalCaptureResult
                                             ) {
                                                 // Image will be processed in ImageReader callback
-                                                session.close()
-                                                camera.close()
+                                                // Close session and camera to free resources
+                                                try {
+                                                    session.close()
+                                                    camera.close()
+                                                    Log.d(TAG, "Camera close() called - waiting for onClosed callback...")
+                                                } catch (e: Exception) {
+                                                    Log.e(TAG, "Error closing camera: ${e.message}")
+                                                    cameraClosedSignal.complete(Unit)
+                                                }
                                             }
                                         }, backgroundHandler)
                                     } catch (e: Exception) {
@@ -196,7 +258,8 @@ object CameraManager {
                                         if (!resumed) {
                                             resumed = true
                                             handlerThread.quitSafely()
-                                            continuation.resume(null)
+                                            cameraClosedSignal.complete(Unit)
+                                            continuation.resume(CameraCapture(null, cameraClosedSignal))
                                         }
                                     }
                                 }
@@ -206,7 +269,8 @@ object CameraManager {
                                     if (!resumed) {
                                         resumed = true
                                         handlerThread.quitSafely()
-                                        continuation.resume(null)
+                                        cameraClosedSignal.complete(Unit)
+                                        continuation.resume(CameraCapture(null, cameraClosedSignal))
                                     }
                                 }
                             },
@@ -217,27 +281,55 @@ object CameraManager {
                         if (!resumed) {
                             resumed = true
                             handlerThread.quitSafely()
-                            continuation.resume(null)
+                            cameraClosedSignal.complete(Unit)
+                            continuation.resume(CameraCapture(null, cameraClosedSignal))
                         }
                     }
                 }
                 
                 override fun onDisconnected(camera: CameraDevice) {
-                    camera.close()
+                    try {
+                        camera.close()
+                        Log.w(TAG, "Camera disconnected")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error closing disconnected camera: ${e.message}")
+                    }
+                    cameraClosedSignal.complete(Unit)
                     if (!resumed) {
                         resumed = true
                         handlerThread.quitSafely()
-                        continuation.resume(null)
+                        continuation.resume(CameraCapture(null, cameraClosedSignal))
                     }
                 }
                 
+                override fun onClosed(camera: CameraDevice) {
+                    Log.d(TAG, "✅ Camera ACTUALLY CLOSED (onClosed callback)")
+                    cameraClosedSignal.complete(Unit)
+                }
+                
                 override fun onError(camera: CameraDevice, error: Int) {
-                    camera.close()
-                    Log.e(TAG, "Camera error: $error")
+                    try {
+                        camera.close()
+                        Log.e(TAG, "Camera error: $error (${getCameraErrorMessage(error)})")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error closing camera after error: ${e.message}")
+                    }
+                    cameraClosedSignal.complete(Unit)
                     if (!resumed) {
                         resumed = true
                         handlerThread.quitSafely()
-                        continuation.resume(null)
+                        continuation.resume(CameraCapture(null, cameraClosedSignal))
+                    }
+                }
+                
+                private fun getCameraErrorMessage(error: Int): String {
+                    return when (error) {
+                        CameraDevice.StateCallback.ERROR_CAMERA_IN_USE -> "Camera in use"
+                        CameraDevice.StateCallback.ERROR_MAX_CAMERAS_IN_USE -> "Max cameras in use"
+                        CameraDevice.StateCallback.ERROR_CAMERA_DISABLED -> "Camera disabled"
+                        CameraDevice.StateCallback.ERROR_CAMERA_DEVICE -> "Camera device error"
+                        CameraDevice.StateCallback.ERROR_CAMERA_SERVICE -> "Camera service error"
+                        else -> "Unknown error"
                     }
                 }
             }, backgroundHandler)
@@ -250,7 +342,8 @@ object CameraManager {
             Log.e(TAG, "Error opening camera: ${e.message}", e)
             if (!resumed) {
                 resumed = true
-                continuation.resume(null)
+                cameraClosedSignal.complete(Unit)
+                continuation.resume(CameraCapture(null, cameraClosedSignal))
             }
         }
     }

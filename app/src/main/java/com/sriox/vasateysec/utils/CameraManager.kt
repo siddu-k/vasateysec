@@ -22,6 +22,7 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -61,21 +62,31 @@ object CameraManager {
         var frontPhoto: File? = null
         var backPhoto: File? = null
         
+        // Try FRONT camera with retry
         try {
-            // Capture from FRONT camera FIRST (try this order for better compatibility)
             Log.d(TAG, "📸 Step 1: Capturing from FRONT camera...")
             frontPhoto = captureFromCamera(context, CameraCharacteristics.LENS_FACING_FRONT)
             if (frontPhoto != null) {
                 Log.d(TAG, "Front camera: ✅ Success (${frontPhoto.length()} bytes)")
             } else {
-                Log.e(TAG, "Front camera: ❌ Failed - returned null (timeout or capture error)")
+                Log.e(TAG, "Front camera: ❌ Failed on first attempt, retrying after delay...")
+                delay(1000) // Wait 1 second before retry
+                frontPhoto = captureFromCamera(context, CameraCharacteristics.LENS_FACING_FRONT)
+                if (frontPhoto != null) {
+                    Log.d(TAG, "Front camera: ✅ Success on retry (${frontPhoto.length()} bytes)")
+                } else {
+                    Log.e(TAG, "Front camera: ❌ Failed after retry")
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "❌ Front camera exception: ${e.javaClass.simpleName} - ${e.message}", e)
         }
         
+        // Add delay before back camera to ensure front camera is fully released
+        delay(500)
+        
+        // Try BACK camera
         try {
-            // Capture from BACK camera SECOND (after front camera is closed)
             Log.d(TAG, "📸 Step 2: Capturing from BACK camera...")
             backPhoto = captureFromCamera(context, CameraCharacteristics.LENS_FACING_BACK)
             Log.d(TAG, "Back camera: ${if (backPhoto != null) "✅ Success (${backPhoto.length()} bytes)" else "❌ Failed"}")
@@ -133,10 +144,13 @@ object CameraManager {
                     
                     if (closed == true) {
                         Log.d(TAG, "[$cameraName] ✅ Camera CONFIRMED closed via onClosed callback")
+                        // Add extra delay even after onClosed to ensure hardware fully releases
+                        kotlinx.coroutines.delay(1000L)
+                        Log.d(TAG, "[$cameraName] ✅ Extra safety delay complete")
                     } else {
                         Log.w(TAG, "[$cameraName] ⚠️ Camera close timeout after 5s - adding extra safety delay")
-                        // If onClosed didn't fire, add extra delay for hardware to release
-                        kotlinx.coroutines.delay(2000L)
+                        // If onClosed didn't fire, add longer delay for hardware to release
+                        kotlinx.coroutines.delay(3000L)
                         Log.d(TAG, "[$cameraName] ✅ Safety delay complete - proceeding")
                     }
                     
@@ -242,13 +256,15 @@ object CameraManager {
                                                 result: TotalCaptureResult
                                             ) {
                                                 // Image will be processed in ImageReader callback
-                                                // Close session and camera to free resources
+                                                // Close session, camera, and imageReader to free ALL resources
                                                 try {
                                                     session.close()
                                                     camera.close()
-                                                    Log.d(TAG, "Camera close() called - waiting for onClosed callback...")
+                                                    imageReader.close()
+                                                    handlerThread.quitSafely()
+                                                    Log.d(TAG, "Camera, ImageReader, and Handler closed - waiting for onClosed callback...")
                                                 } catch (e: Exception) {
-                                                    Log.e(TAG, "Error closing camera: ${e.message}")
+                                                    Log.e(TAG, "Error closing camera resources: ${e.message}")
                                                     cameraClosedSignal.complete(Unit)
                                                 }
                                             }

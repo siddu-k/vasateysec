@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/deep_navy">
+    android:background="@color/background_dark">
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
@@ -19,7 +19,7 @@
             <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="220dp"
-                android:background="@drawable/gradient_header">
+                android:background="@drawable/gradient_header_golden">
 
                 <!-- Animated Alert Icon -->
                 <LinearLayout
@@ -34,7 +34,7 @@
                         android:layout_width="80dp"
                         android:layout_height="80dp"
                         android:src="@drawable/ic_sos"
-                        android:tint="@color/coral"
+                        android:tint="@color/golden"
                         android:background="@drawable/bg_sos_button"
                         android:padding="20dp" />
 
@@ -71,9 +71,11 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"
-                    app:cardBackgroundColor="@color/card_background"
-                    app:cardCornerRadius="24dp"
-                    app:cardElevation="8dp">
+                    app:cardBackgroundColor="#2A2A2A"
+                    app:cardCornerRadius="20dp"
+                    app:cardElevation="4dp"
+                    app:strokeWidth="1dp"
+                    app:strokeColor="#404040">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -106,7 +108,7 @@
                                     android:layout_height="32dp"
                                     android:layout_gravity="center"
                                     android:src="@drawable/ic_profile"
-                                    android:tint="@color/pink" />
+                                    android:tint="@color/golden" />
                             </FrameLayout>
 
                             <LinearLayout
@@ -162,7 +164,7 @@
                                     android:layout_width="24dp"
                                     android:layout_height="24dp"
                                     android:src="@android:drawable/ic_menu_call"
-                                    android:tint="@color/success" />
+                                    android:tint="@color/golden" />
 
                                 <TextView
                                     android:id="@+id/userPhone"
@@ -186,7 +188,7 @@
                                     android:layout_width="24dp"
                                     android:layout_height="24dp"
                                     android:src="@android:drawable/ic_menu_recent_history"
-                                    android:tint="@color/warning" />
+                                    android:tint="@color/golden" />
 
                                 <TextView
                                     android:id="@+id/alertTime"
@@ -215,12 +217,12 @@
                         android:layout_weight="1"
                         android:text="Call Now"
                         android:textSize="16sp"
-                        android:textColor="@color/text_primary"
+                        android:textColor="@color/background_dark"
                         android:layout_marginEnd="8dp"
-                        app:backgroundTint="@color/success"
+                        app:backgroundTint="@color/golden"
                         app:cornerRadius="20dp"
                         app:icon="@android:drawable/ic_menu_call"
-                        app:iconTint="@color/text_primary"
+                        app:iconTint="@color/background_dark"
                         app:iconGravity="textStart" />
 
                     <com.google.android.material.button.MaterialButton
@@ -230,12 +232,12 @@
                         android:layout_weight="1"
                         android:text="Navigate"
                         android:textSize="16sp"
-                        android:textColor="@color/text_primary"
+                        android:textColor="@color/background_dark"
                         android:layout_marginStart="8dp"
-                        app:backgroundTint="@color/blue"
+                        app:backgroundTint="@color/golden"
                         app:cornerRadius="20dp"
                         app:icon="@android:drawable/ic_menu_mylocation"
-                        app:iconTint="@color/text_primary"
+                        app:iconTint="@color/background_dark"
                         app:iconGravity="textStart" />
                 </LinearLayout>
 
@@ -244,9 +246,11 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"
-                    app:cardBackgroundColor="@color/card_background"
-                    app:cardCornerRadius="24dp"
-                    app:cardElevation="8dp">
+                    app:cardBackgroundColor="#2A2A2A"
+                    app:cardCornerRadius="20dp"
+                    app:cardElevation="4dp"
+                    app:strokeWidth="1dp"
+                    app:strokeColor="#404040">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -265,7 +269,7 @@
                                 android:layout_width="24dp"
                                 android:layout_height="24dp"
                                 android:src="@android:drawable/ic_menu_mylocation"
-                                android:tint="@color/pink" />
+                                android:tint="@color/golden" />
 
                             <TextView
                                 android:layout_width="0dp"

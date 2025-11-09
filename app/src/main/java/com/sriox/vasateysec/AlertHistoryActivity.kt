@@ -50,7 +50,7 @@ class AlertHistoryActivity : AppCompatActivity() {
         )
         
         // Back button
-        binding.backButton.setOnClickListener {
+        findViewById<android.widget.ImageView>(R.id.backButton)?.setOnClickListener {
             finish()
         }
         
@@ -60,20 +60,31 @@ class AlertHistoryActivity : AppCompatActivity() {
     private fun setupBottomNavigation() {
         val navGuardians = findViewById<android.widget.LinearLayout>(R.id.navGuardians)
         val navHistory = findViewById<android.widget.LinearLayout>(R.id.navHistory)
-        val sosButton = findViewById<com.google.android.material.floatingactionbutton.FloatingActionButton>(R.id.sosButton)
+        val sosButton = findViewById<com.google.android.material.card.MaterialCardView>(R.id.sosButton)
         val navGhistory = findViewById<android.widget.LinearLayout>(R.id.navGhistory)
         val navProfile = findViewById<android.widget.LinearLayout>(R.id.navProfile)
         
         navGuardians?.setOnClickListener {
-            startActivity(Intent(this, AddGuardianActivity::class.java))
+            val intent = Intent(this, AddGuardianActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            startActivity(intent)
+            finish()
         }
         navHistory?.setOnClickListener { /* Already here */ }
         sosButton?.setOnClickListener {
             com.sriox.vasateysec.utils.SOSHelper.showSOSConfirmation(this)
         }
-        navGhistory?.setOnClickListener { /* Already here */ }
+        navGhistory?.setOnClickListener {
+            val intent = Intent(this, GuardianMapActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            startActivity(intent)
+            finish()
+        }
         navProfile?.setOnClickListener {
-            startActivity(Intent(this, EditProfileActivity::class.java))
+            val intent = Intent(this, EditProfileActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            startActivity(intent)
+            finish()
         }
     }
     
@@ -347,17 +358,11 @@ class AlertAdapter(
         holder.binding.alertPhone.text = alert.user_phone
         holder.binding.alertStatus.text = alert.status.uppercase()
         
-        // Set alert type badge
+        // Set alert type badge with arrows
         if (isSentByMe) {
-            holder.binding.alertType.text = "📤 Sent"
-            holder.binding.alertType.setBackgroundColor(
-                android.graphics.Color.parseColor("#2196F3") // Blue
-            )
+            holder.binding.alertType.text = "↑" // Up arrow for sent
         } else {
-            holder.binding.alertType.text = "📥 Received"
-            holder.binding.alertType.setBackgroundColor(
-                android.graphics.Color.parseColor("#4CAF50") // Green
-            )
+            holder.binding.alertType.text = "↓" // Down arrow for received
         }
 
         if (alert.latitude != null && alert.longitude != null) {

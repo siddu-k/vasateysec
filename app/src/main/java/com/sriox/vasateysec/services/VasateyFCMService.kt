@@ -45,7 +45,16 @@ class VasateyFCMService : FirebaseMessagingService() {
         message.data.let { data ->
             if (data.isNotEmpty()) {
                 Log.d(TAG, "Message data payload: $data")
-                handleDataMessage(data)
+                
+                // Check message type - handle location requests separately
+                val messageType = data["type"] ?: "alert"
+                if (messageType == "location_request") {
+                    // Independent location request handling
+                    com.sriox.vasateysec.utils.LiveLocationHelper.handleLocationRequest(applicationContext, data)
+                } else {
+                    // Normal alert handling
+                    handleDataMessage(data)
+                }
             }
         }
         

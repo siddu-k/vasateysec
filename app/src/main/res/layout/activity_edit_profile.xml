@@ -3,12 +3,14 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/deep_navy">
+    android:background="@color/background_dark">
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true">
+        android:layout_marginBottom="80dp"
+        android:fillViewport="true"
+        android:clipToPadding="false">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -18,83 +20,29 @@
             <!-- Gradient Header -->
             <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="220dp"
-                android:background="@drawable/gradient_header">
+                android:layout_height="80dp"
+                android:background="@drawable/gradient_header_golden">
 
-                <!-- Back Button & Title -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="20dp"
-                    android:gravity="center_vertical">
+                <ImageView
+                    android:id="@+id/backButton"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_gravity="start|center_vertical"
+                    android:layout_marginStart="16dp"
+                    android:src="@drawable/ic_back"
+                    android:tint="@color/golden"
+                    android:padding="8dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Back" />
 
-                    <ImageView
-                        android:id="@+id/backButton"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:src="@drawable/ic_back"
-                        android:tint="@color/text_primary"
-                        android:padding="8dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:contentDescription="Back" />
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="8dp">
-
-                        <ImageView
-                            android:layout_width="120dp"
-                            android:layout_height="32dp"
-                            android:src="@drawable/logo"
-                            android:scaleType="fitStart"
-                            android:adjustViewBounds="true"
-                            android:contentDescription="Vasatey Logo" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Profile"
-                            android:textColor="@color/text_secondary"
-                            android:textSize="14sp"
-                            android:layout_marginTop="4dp" />
-                    </LinearLayout>
-                </LinearLayout>
-
-                <!-- Center Content -->
-                <LinearLayout
-                    android:layout_width="match_parent"
+                <TextView
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
-                    android:orientation="vertical"
-                    android:gravity="center"
-                    android:padding="24dp">
-
-                    <!-- Profile Avatar -->
-                    <FrameLayout
-                        android:layout_width="100dp"
-                        android:layout_height="100dp"
-                        android:background="@drawable/bg_sos_button">
-
-                        <ImageView
-                            android:layout_width="60dp"
-                            android:layout_height="60dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_profile"
-                            android:tint="@color/text_primary" />
-                    </FrameLayout>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Edit Your Profile"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="14sp"
-                        android:layout_marginTop="12dp" />
-                </LinearLayout>
+                    android:text="Profile"
+                    android:textColor="@color/text_primary"
+                    android:textSize="24sp"
+                    android:textStyle="bold" />
             </FrameLayout>
 
             <!-- Content -->
@@ -103,7 +51,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="20dp"
-                android:paddingBottom="100dp">
+                android:paddingBottom="120dp">
 
                 <!-- Profile Info Card -->
                 <com.google.android.material.card.MaterialCardView
@@ -254,12 +202,12 @@
                     android:layout_height="64dp"
                     android:text="Save Changes"
                     android:textSize="18sp"
-                    android:textColor="@color/text_primary"
+                    android:textColor="@color/background_dark"
                     android:layout_marginBottom="16dp"
-                    app:backgroundTint="@color/violet"
+                    app:backgroundTint="@color/golden"
                     app:cornerRadius="20dp"
                     app:icon="@android:drawable/ic_menu_save"
-                    app:iconTint="@color/text_primary"
+                    app:iconTint="@color/background_dark"
                     app:iconGravity="textStart" />
 
                 <!-- Logout Button -->
@@ -269,13 +217,13 @@
                     android:layout_height="56dp"
                     android:text="Logout"
                     android:textSize="16sp"
-                    android:textColor="@color/error"
+                    android:textColor="@color/golden"
                     app:backgroundTint="@android:color/transparent"
                     app:cornerRadius="16dp"
-                    app:strokeColor="@color/error"
+                    app:strokeColor="@color/golden"
                     app:strokeWidth="2dp"
                     app:icon="@android:drawable/ic_lock_power_off"
-                    app:iconTint="@color/error"
+                    app:iconTint="@color/golden"
                     app:iconGravity="textStart"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 

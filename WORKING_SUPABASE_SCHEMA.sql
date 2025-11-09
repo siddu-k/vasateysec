@@ -92,6 +92,19 @@ CREATE TABLE IF NOT EXISTS public.notifications (
   sent_at TIMESTAMP WITH TIME ZONE
 );
 
+-- 7. LIVE LOCATIONS TABLE (for real-time location tracking)
+-- Stores current location of users when requested by guardians
+CREATE TABLE IF NOT EXISTS public.live_locations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  latitude DOUBLE PRECISION NOT NULL,
+  longitude DOUBLE PRECISION NOT NULL,
+  accuracy REAL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id)
+);
+
 -- ============================================
 -- STEP 2: CREATE INDEXES FOR PERFORMANCE
 -- ============================================
@@ -122,6 +135,10 @@ CREATE INDEX IF NOT EXISTS idx_alert_recipients_guardian_user_id ON public.alert
 CREATE INDEX IF NOT EXISTS idx_notifications_status ON public.notifications(status);
 CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON public.notifications(created_at);
 
+-- Live locations indexes
+CREATE INDEX IF NOT EXISTS idx_live_locations_user_id ON public.live_locations(user_id);
+CREATE INDEX IF NOT EXISTS idx_live_locations_updated_at ON public.live_locations(updated_at DESC);
+
 -- ============================================
 -- STEP 3: ENABLE ROW LEVEL SECURITY (RLS)
 -- ============================================
@@ -132,6 +149,7 @@ ALTER TABLE public.guardians ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.alert_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.alert_recipients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.live_locations ENABLE ROW LEVEL SECURITY;
 
 -- ============================================
 -- STEP 4: CREATE RLS POLICIES
@@ -218,6 +236,23 @@ CREATE POLICY "alert_recipients_update_viewed" ON public.alert_recipients
 CREATE POLICY "notifications_all_system" ON public.notifications
   FOR ALL USING (true);
 
+-- LIVE LOCATIONS TABLE POLICIES
+-- Allow users to manage their own live location
+CREATE POLICY "live_locations_all_own" ON public.live_locations
+  FOR ALL USING (auth.uid() = user_id);
+
+-- Allow guardians to view live locations of users who added them
+CREATE POLICY "live_locations_select_as_guardian" ON public.live_locations
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.guardians
+      JOIN public.users ON users.email = guardians.guardian_email
+      WHERE guardians.user_id = live_locations.user_id
+      AND users.id = auth.uid()
+      AND guardians.status = 'active'
+    )
+  );
+
 -- ============================================
 -- STEP 5: CREATE FUNCTIONS
 -- ============================================
@@ -300,6 +335,13 @@ CREATE TRIGGER set_fcm_tokens_updated_at
 DROP TRIGGER IF EXISTS set_guardians_updated_at ON public.guardians;
 CREATE TRIGGER set_guardians_updated_at
   BEFORE UPDATE ON public.guardians
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_updated_at();
+
+-- Trigger to update updated_at on live_locations table
+DROP TRIGGER IF EXISTS set_live_locations_updated_at ON public.live_locations;
+CREATE TRIGGER set_live_locations_updated_at
+  BEFORE UPDATE ON public.live_locations
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_updated_at();
 

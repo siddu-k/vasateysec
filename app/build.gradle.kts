@@ -50,13 +50,25 @@ android {
             
             // Disable ALL compression and optimization
             isCrunchPngs = false  // Don't optimize PNGs
+            isZipAlignEnabled = false  // Disable zip alignment
+            
+            // Disable all optimizations
+            isPseudoLocalesEnabled = false
+            isRenderscriptDebuggable = true
+            renderscriptOptimLevel = 0
+            
+            // Disable code optimizations - use no-op proguard
+            proguardFiles(
+                getDefaultProguardFile("proguard-android.txt"),
+                "proguard-rules.pro"
+            )
             
             // Keep native debug symbols (don't strip)
             ndk {
                 debugSymbolLevel = "FULL"  // Keep all debug symbols
             }
             
-            // Disable ALL compression in APK
+            // Disable ALL compression in APK - COMPLETE NO COMPRESSION
             packaging {
                 resources {
                     excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -124,9 +136,10 @@ dependencies {
     implementation("com.google.firebase:firebase-messaging-ktx")
     implementation("com.google.firebase:firebase-analytics-ktx")
     
-    // Google Play Services for location
+    // Google Play Services for location and maps
     implementation("com.google.android.gms:play-services-location:21.3.0")
-    implementation("com.google.android.gms:play-services-maps:19.0.0")
+    implementation("com.google.android.gms:play-services-maps:18.2.0")
+    implementation("com.google.android.gms:play-services-base:18.4.0")
     
     // Glide for image loading
     implementation("com.github.bumptech.glide:glide:4.16.0")

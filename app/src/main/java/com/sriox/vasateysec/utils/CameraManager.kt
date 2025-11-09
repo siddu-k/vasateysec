@@ -33,8 +33,15 @@ import kotlin.coroutines.resume
 
 object CameraManager {
     private const val TAG = "CameraManager"
-    private const val CAPTURE_TIMEOUT_MS = 10000L // Increased to 10 seconds
-    private const val CAMERA_DELAY_MS = 4000L // 4 second delay between cameras to ensure cleanup
+    private const val CAPTURE_TIMEOUT_MS = 15000L // Increased to 15 seconds
+    private const val CAMERA_DELAY_MS = 2000L // 2 second delay between cameras
+    private const val MAX_RETRIES = 3 // Maximum retry attempts
+    private const val RETRY_DELAY_MS = 2000L // Initial retry delay
+    
+    // Track camera usage to prevent conflicts
+    @Volatile
+    private var isCameraInUse = false
+    private val cameraLock = Any()
     
     data class CapturedPhotos(
         val frontPhoto: File?,
@@ -62,28 +69,21 @@ object CameraManager {
         var frontPhoto: File? = null
         var backPhoto: File? = null
         
-        // Try FRONT camera with retry
+        // Try FRONT camera with exponential backoff retry
         try {
             Log.d(TAG, "📸 Step 1: Capturing from FRONT camera...")
-            frontPhoto = captureFromCamera(context, CameraCharacteristics.LENS_FACING_FRONT)
+            frontPhoto = captureFromCameraWithRetry(context, CameraCharacteristics.LENS_FACING_FRONT)
             if (frontPhoto != null) {
                 Log.d(TAG, "Front camera: ✅ Success (${frontPhoto.length()} bytes)")
             } else {
-                Log.e(TAG, "Front camera: ❌ Failed on first attempt, retrying after delay...")
-                delay(1000) // Wait 1 second before retry
-                frontPhoto = captureFromCamera(context, CameraCharacteristics.LENS_FACING_FRONT)
-                if (frontPhoto != null) {
-                    Log.d(TAG, "Front camera: ✅ Success on retry (${frontPhoto.length()} bytes)")
-                } else {
-                    Log.e(TAG, "Front camera: ❌ Failed after retry")
-                }
+                Log.e(TAG, "Front camera: ❌ Failed after all retry attempts")
             }
         } catch (e: Exception) {
             Log.e(TAG, "❌ Front camera exception: ${e.javaClass.simpleName} - ${e.message}", e)
         }
         
         // Add delay before back camera to ensure front camera is fully released
-        delay(500)
+        delay(CAMERA_DELAY_MS)
         
         // Try BACK camera
         try {
@@ -95,7 +95,66 @@ object CameraManager {
         }
         
         Log.d(TAG, "✅ Photo capture complete: front=${frontPhoto != null}, back=${backPhoto != null}")
+        
+        // Final cleanup - ensure camera is marked as not in use
+        synchronized(cameraLock) {
+            isCameraInUse = false
+        }
+        
         return@withContext CapturedPhotos(frontPhoto, backPhoto)
+    }
+    
+    /**
+     * Capture from camera with exponential backoff retry
+     */
+    private suspend fun captureFromCameraWithRetry(context: Context, lensFacing: Int): File? {
+        val cameraName = if (lensFacing == CameraCharacteristics.LENS_FACING_FRONT) "FRONT" else "BACK"
+        
+        for (attempt in 1..MAX_RETRIES) {
+            // Check if camera is already in use
+            synchronized(cameraLock) {
+                if (isCameraInUse) {
+                    Log.w(TAG, "[$cameraName] Camera is in use, waiting...")
+                    // Wait for camera to be released
+                    val waitTime = RETRY_DELAY_MS * attempt
+                    Log.d(TAG, "[$cameraName] Waiting ${waitTime}ms before attempt $attempt")
+                }
+            }
+            
+            try {
+                // Mark camera as in use
+                synchronized(cameraLock) {
+                    isCameraInUse = true
+                }
+                
+                Log.d(TAG, "[$cameraName] Attempt $attempt of $MAX_RETRIES")
+                val result = captureFromCamera(context, lensFacing)
+                
+                if (result != null) {
+                    Log.d(TAG, "[$cameraName] ✅ Success on attempt $attempt")
+                    return result
+                } else {
+                    Log.w(TAG, "[$cameraName] ⚠️ Failed attempt $attempt")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "[$cameraName] ❌ Exception on attempt $attempt: ${e.message}", e)
+            } finally {
+                // Always mark camera as not in use after attempt
+                synchronized(cameraLock) {
+                    isCameraInUse = false
+                }
+            }
+            
+            // If not last attempt, wait with exponential backoff
+            if (attempt < MAX_RETRIES) {
+                val delayTime = RETRY_DELAY_MS * attempt // Exponential backoff
+                Log.d(TAG, "[$cameraName] Waiting ${delayTime}ms before next attempt...")
+                delay(delayTime)
+            }
+        }
+        
+        Log.e(TAG, "[$cameraName] ❌ All $MAX_RETRIES attempts failed")
+        return null
     }
     
     data class CameraCapture(
@@ -104,7 +163,7 @@ object CameraManager {
     )
     
     /**
-     * Capture photo from specific camera
+     * Capture photo from specific camera (single attempt)
      */
     private suspend fun captureFromCamera(context: Context, lensFacing: Int): File? {
         val cameraName = if (lensFacing == CameraCharacteristics.LENS_FACING_FRONT) "FRONT" else "BACK"
@@ -122,6 +181,15 @@ object CameraManager {
                 }
                 Log.d(TAG, "[$cameraName] ✅ Found camera ID: $cameraId")
                 
+                // Check if camera is available before attempting to open
+                try {
+                    val characteristics = cameraManager.getCameraCharacteristics(cameraId)
+                    Log.d(TAG, "[$cameraName] ✅ Camera characteristics retrieved")
+                } catch (e: CameraAccessException) {
+                    Log.e(TAG, "[$cameraName] ❌ Camera not accessible: ${e.message}")
+                    return@withTimeoutOrNull null
+                }
+                
                 Log.d(TAG, "[$cameraName] Step 3: Creating image file...")
                 val imageFile = createImageFile(context, lensFacing)
                 Log.d(TAG, "[$cameraName] ✅ Image file created: ${imageFile.absolutePath}")
@@ -136,31 +204,31 @@ object CameraManager {
                     Log.d(TAG, "[$cameraName] ✅ SUCCESS - Photo saved: ${imageFile.length()} bytes")
                     
                     // CRITICAL: Wait for camera to actually close before returning
-                    Log.d(TAG, "[$cameraName] Step 6: Waiting for camera to ACTUALLY close (onClosed callback)...")
-                    val closed = withTimeoutOrNull(5000L) {
+                    Log.d(TAG, "[$cameraName] Step 6: Waiting for camera to close...")
+                    val closed = withTimeoutOrNull(3000L) {
                         capture.closeSignal.await()
                         true
                     }
                     
                     if (closed == true) {
-                        Log.d(TAG, "[$cameraName] ✅ Camera CONFIRMED closed via onClosed callback")
-                        // Add extra delay even after onClosed to ensure hardware fully releases
-                        kotlinx.coroutines.delay(1000L)
-                        Log.d(TAG, "[$cameraName] ✅ Extra safety delay complete")
+                        Log.d(TAG, "[$cameraName] ✅ Camera closed successfully")
+                        // Shorter delay after successful close
+                        kotlinx.coroutines.delay(500L)
                     } else {
-                        Log.w(TAG, "[$cameraName] ⚠️ Camera close timeout after 5s - adding extra safety delay")
-                        // If onClosed didn't fire, add longer delay for hardware to release
-                        kotlinx.coroutines.delay(3000L)
-                        Log.d(TAG, "[$cameraName] ✅ Safety delay complete - proceeding")
+                        Log.w(TAG, "[$cameraName] ⚠️ Camera close timeout - forcing cleanup")
+                        // Force cleanup and longer delay
+                        kotlinx.coroutines.delay(1500L)
                     }
                     
                     return@withTimeoutOrNull imageFile
                 } else {
                     Log.e(TAG, "[$cameraName] ❌ FAILED - Bitmap is null (camera capture failed)")
                     // Still wait for close signal even on failure
-                    withTimeoutOrNull(1000L) {
+                    withTimeoutOrNull(2000L) {
                         capture.closeSignal.await()
                     }
+                    // Add delay to ensure cleanup
+                    kotlinx.coroutines.delay(1000L)
                     return@withTimeoutOrNull null
                 }
             } catch (e: Exception) {
@@ -186,11 +254,12 @@ object CameraManager {
         var resumed = false
         
         try {
-            val handlerThread = HandlerThread("CameraBackground")
+            val handlerThread = HandlerThread("CameraBackground-${System.currentTimeMillis()}")
             handlerThread.start()
             val backgroundHandler = Handler(handlerThread.looper)
             
-            val imageReader = ImageReader.newInstance(640, 480, ImageFormat.JPEG, 1)
+            // Use moderate resolution for faster capture and less memory (640x480)
+            val imageReader = ImageReader.newInstance(640, 480, ImageFormat.JPEG, 2)
             
             imageReader.setOnImageAvailableListener({ reader ->
                 try {
@@ -242,7 +311,21 @@ object CameraManager {
                     try {
                         val captureRequestBuilder = camera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE)
                         captureRequestBuilder.addTarget(imageReader.surface)
+                        
+                        // Disable autofocus for faster, sharper capture (no blur from focusing)
+                        captureRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
+                        captureRequestBuilder.set(CaptureRequest.LENS_FOCUS_DISTANCE, 0.0f) // Infinity focus (zoomed out, everything in focus)
+                        
+                        // Set control mode to auto for exposure and white balance
                         captureRequestBuilder.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO)
+                        
+                        // Optimize for speed and quality
+                        captureRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+                        captureRequestBuilder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO)
+                        
+                        // Disable image stabilization for faster capture
+                        captureRequestBuilder.set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE, CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_OFF)
+                        captureRequestBuilder.set(CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE, CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF)
                         
                         camera.createCaptureSession(
                             listOf(imageReader.surface),
@@ -256,15 +339,20 @@ object CameraManager {
                                                 result: TotalCaptureResult
                                             ) {
                                                 // Image will be processed in ImageReader callback
-                                                // Close session, camera, and imageReader to free ALL resources
+                                                // Close resources in proper order
                                                 try {
                                                     session.close()
-                                                    camera.close()
-                                                    imageReader.close()
-                                                    handlerThread.quitSafely()
-                                                    Log.d(TAG, "Camera, ImageReader, and Handler closed - waiting for onClosed callback...")
+                                                    camera.close() // Close camera after session
+                                                    Log.d(TAG, "Capture session and camera closed - waiting for onClosed callback...")
                                                 } catch (e: Exception) {
-                                                    Log.e(TAG, "Error closing camera resources: ${e.message}")
+                                                    Log.e(TAG, "Error closing capture session: ${e.message}")
+                                                    try {
+                                                        camera.close()
+                                                        imageReader.close()
+                                                        handlerThread.quitSafely()
+                                                    } catch (cleanupError: Exception) {
+                                                        Log.e(TAG, "Error in cleanup: ${cleanupError.message}")
+                                                    }
                                                     cameraClosedSignal.complete(Unit)
                                                 }
                                             }
@@ -320,16 +408,33 @@ object CameraManager {
                 
                 override fun onClosed(camera: CameraDevice) {
                     Log.d(TAG, "✅ Camera ACTUALLY CLOSED (onClosed callback)")
+                    try {
+                        imageReader.close()
+                        handlerThread.quitSafely()
+                        Log.d(TAG, "✅ All camera resources cleaned up")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error in final cleanup: ${e.message}")
+                    }
                     cameraClosedSignal.complete(Unit)
                 }
                 
                 override fun onError(camera: CameraDevice, error: Int) {
+                    val errorMsg = getCameraErrorMessage(error)
+                    Log.e(TAG, "Camera error: $error ($errorMsg)")
+                    
+                    // Special handling for ERROR_CAMERA_IN_USE and ERROR_CAMERA_DEVICE
+                    if (error == CameraDevice.StateCallback.ERROR_CAMERA_IN_USE ||
+                        error == CameraDevice.StateCallback.ERROR_CAMERA_DEVICE) {
+                        Log.e(TAG, "⚠️ Camera hardware conflict detected - device may be in use by another app")
+                    }
+                    
                     try {
                         camera.close()
-                        Log.e(TAG, "Camera error: $error (${getCameraErrorMessage(error)})")
+                        imageReader.close()
                     } catch (e: Exception) {
                         Log.e(TAG, "Error closing camera after error: ${e.message}")
                     }
+                    
                     cameraClosedSignal.complete(Unit)
                     if (!resumed) {
                         resumed = true

@@ -152,40 +152,48 @@ class VoskWakeWordService : Service(), RecognitionListener {
                     }
                 }
                 
-                // Try to get location with multiple attempts
-                Log.d("VoskService", "📍 Getting location for emergency alert...")
-                var location: android.location.Location? = null
-                var attempts = 0
-                val maxAttempts = 3
+                Log.d("VoskService", "========================================")
+                Log.d("VoskService", "📍 Getting current location...")
+                Log.d("VoskService", "========================================")
                 
-                while (location == null && attempts < maxAttempts) {
-                    attempts++
-                    Log.d("VoskService", "📍 Location attempt $attempts/$maxAttempts...")
-                    
-                    location = LocationManager.getCurrentLocation(this@VoskWakeWordService)
-                    
-                    if (location != null) {
-                        Log.d("VoskService", "✅ Location obtained on attempt $attempts: ${location.latitude}, ${location.longitude}, accuracy: ${location.accuracy}m")
+                // Check if location tracking is enabled in settings
+                val locationSettingsPrefs = getSharedPreferences("vasatey_settings", MODE_PRIVATE)
+                val locationTrackingEnabled = locationSettingsPrefs.getBoolean("location_tracking_enabled", true)
+                
+                // Get location with retry logic
+                var location: android.location.Location? = null
+                
+                if (locationTrackingEnabled) {
+                    val maxAttempts = 3
+                    for (attempts in 1..maxAttempts) {
+                        Log.d("VoskService", "📍 Location attempt $attempts/$maxAttempts")
+                        location = LocationManager.getCurrentLocation(this@VoskWakeWordService)
                         
-                        // Save location to SharedPreferences for future use
-                        val prefs = getSharedPreferences("vasatey_prefs", MODE_PRIVATE)
-                        prefs.edit().apply {
-                            putString("last_known_lat", location.latitude.toString())
-                            putString("last_known_lon", location.longitude.toString())
-                            putFloat("last_known_accuracy", location.accuracy)
-                            putLong("last_known_time", location.time)
-                            apply()
-                        }
-                        Log.d("VoskService", "💾 Saved location to cache")
-                        
-                        break
-                    } else {
-                        Log.w("VoskService", "❌ Location attempt $attempts failed")
-                        if (attempts < maxAttempts) {
-                            Log.d("VoskService", "⏳ Waiting 3 seconds before retry...")
-                            kotlinx.coroutines.delay(3000) // Wait 3 seconds between attempts
+                        if (location != null) {
+                            Log.d("VoskService", "✅ Location obtained: ${location.latitude}, ${location.longitude}, accuracy: ${location.accuracy}m")
+                            
+                            // Save location to SharedPreferences for future use
+                            val prefs = getSharedPreferences("vasatey_prefs", MODE_PRIVATE)
+                            prefs.edit().apply {
+                                putString("last_known_lat", location.latitude.toString())
+                                putString("last_known_lon", location.longitude.toString())
+                                putFloat("last_known_accuracy", location.accuracy)
+                                putLong("last_known_time", location.time)
+                                apply()
+                            }
+                            Log.d("VoskService", "💾 Saved location to cache")
+                            
+                            break
+                        } else {
+                            Log.w("VoskService", "❌ Location attempt $attempts failed")
+                            if (attempts < maxAttempts) {
+                                Log.d("VoskService", "⏳ Waiting 3 seconds before retry...")
+                                kotlinx.coroutines.delay(3000) // Wait 3 seconds between attempts
+                            }
                         }
                     }
+                } else {
+                    Log.d("VoskService", "📍 Location tracking disabled in settings - skipping location")
                 }
                 
                 if (location == null) {
@@ -229,18 +237,31 @@ class VoskWakeWordService : Service(), RecognitionListener {
                 Log.d("VoskService", "📸 Capturing emergency photos...")
                 Log.d("VoskService", "========================================")
                 
-                // Show progress notification
-                launch(Dispatchers.Main) {
-                    showResultNotification("📸 Capturing Photos", "Taking emergency photos from both cameras...")
+                // Check if photo capture is enabled in settings
+                val photoSettingsPrefs = getSharedPreferences("vasatey_settings", MODE_PRIVATE)
+                val photoCaptureEnabled = photoSettingsPrefs.getBoolean("photo_capture_enabled", true)
+                
+                val photos = if (photoCaptureEnabled) {
+                    // Show progress notification
+                    launch(Dispatchers.Main) {
+                        showResultNotification("📸 Capturing Photos", "Taking emergency photos from both cameras...")
+                    }
+                    
+                    // Capture photos from both cameras
+                    val capturedPhotos = CameraManager.captureEmergencyPhotos(this@VoskWakeWordService)
+                    
+                    Log.d("VoskService", "========================================")
+                    Log.d("VoskService", "📸 Photo capture results:")
+                    Log.d("VoskService", "Front photo: ${if (capturedPhotos.frontPhoto != null) "✅ ${capturedPhotos.frontPhoto.absolutePath} (${capturedPhotos.frontPhoto.length()} bytes)" else "❌ NULL"}")
+                    Log.d("VoskService", "Back photo: ${if (capturedPhotos.backPhoto != null) "✅ ${capturedPhotos.backPhoto.absolutePath} (${capturedPhotos.backPhoto.length()} bytes)" else "❌ NULL"}")
+                    Log.d("VoskService", "========================================")
+                    
+                    capturedPhotos
+                } else {
+                    Log.d("VoskService", "📸 Photo capture disabled in settings - skipping photos")
+                    CameraManager.CapturedPhotos(null, null)
                 }
                 
-                // Capture photos from both cameras
-                val photos = CameraManager.captureEmergencyPhotos(this@VoskWakeWordService)
-                
-                Log.d("VoskService", "========================================")
-                Log.d("VoskService", "📸 Photo capture results:")
-                Log.d("VoskService", "Front photo: ${if (photos.frontPhoto != null) "✅ ${photos.frontPhoto.absolutePath} (${photos.frontPhoto.length()} bytes)" else "❌ NULL"}")
-                Log.d("VoskService", "Back photo: ${if (photos.backPhoto != null) "✅ ${photos.backPhoto.absolutePath} (${photos.backPhoto.length()} bytes)" else "❌ NULL"}")
                 Log.d("VoskService", "========================================")
                 
                 Log.d("VoskService", "Sending emergency alert...")

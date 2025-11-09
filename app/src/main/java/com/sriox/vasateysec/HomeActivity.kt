@@ -128,28 +128,49 @@ class HomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             startActivity(Intent(this, AlertHistoryActivity::class.java))
         }
         
-        // Profile Icon
-        binding.profileIcon.setOnClickListener {
-            startActivity(Intent(this, EditProfileActivity::class.java))
+        // Settings Card
+        binding.settingsCard.setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
         }
+        
+        // Logout Button
+        binding.logoutButton.setOnClickListener {
+            showLogoutDialog()
+        }
+    }
+    
+    private fun showLogoutDialog() {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Logout")
+            .setMessage("Are you sure you want to logout?")
+            .setPositiveButton("Yes") { _, _ ->
+                logout()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
     
     private fun setupBottomNavigation() {
         // Access bottom nav views via findViewById since they're in an included layout
         val navGuardians = findViewById<android.widget.LinearLayout>(R.id.navGuardians)
         val navHistory = findViewById<android.widget.LinearLayout>(R.id.navHistory)
-        val sosButton = findViewById<com.google.android.material.floatingactionbutton.FloatingActionButton>(R.id.sosButton)
+        val sosButton = findViewById<com.google.android.material.card.MaterialCardView>(R.id.sosButton)
         val navGhistory = findViewById<android.widget.LinearLayout>(R.id.navGhistory)
         val navProfile = findViewById<android.widget.LinearLayout>(R.id.navProfile)
         
         // Guardians
         navGuardians?.setOnClickListener {
-            startActivity(Intent(this, AddGuardianActivity::class.java))
+            val intent = Intent(this, AddGuardianActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            startActivity(intent)
         }
         
         // History
         navHistory?.setOnClickListener {
-            startActivity(Intent(this, AlertHistoryActivity::class.java))
+            android.util.Log.d("HomeActivity", "History button clicked")
+            val intent = Intent(this, AlertHistoryActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            startActivity(intent)
         }
         
         // SOS Button (Center) - Manual Emergency Alert with Confirmation
@@ -157,14 +178,19 @@ class HomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             com.sriox.vasateysec.utils.SOSHelper.showSOSConfirmation(this)
         }
         
-        // G History (placeholder - shows received alerts)
+        // Track - Shows map
         navGhistory?.setOnClickListener {
-            startActivity(Intent(this, AlertHistoryActivity::class.java))
+            android.util.Log.d("HomeActivity", "Track button clicked")
+            val intent = Intent(this, GuardianMapActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            startActivity(intent)
         }
         
         // Profile
         navProfile?.setOnClickListener {
-            startActivity(Intent(this, EditProfileActivity::class.java))
+            val intent = Intent(this, EditProfileActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            startActivity(intent)
         }
     }
     
@@ -176,12 +202,17 @@ class HomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
     
     private fun restoreVoiceAlertState() {
-        val isEnabled = getSharedPreferences("vasatey_prefs", MODE_PRIVATE)
+        // Check if service is actually running
+        val isServiceRunning = isServiceRunning(VoskWakeWordService::class.java)
+        val savedState = getSharedPreferences("vasatey_prefs", MODE_PRIVATE)
             .getBoolean("voice_alert_enabled", false)
+        
+        // Use actual service state, not saved state
+        val actualState = isServiceRunning && savedState
         
         // Set switch state without triggering the listener
         binding.voiceAlertSwitch.setOnCheckedChangeListener(null)
-        binding.voiceAlertSwitch.isChecked = isEnabled
+        binding.voiceAlertSwitch.isChecked = actualState
         
         // Re-attach the listener after setting the state
         binding.voiceAlertSwitch.setOnCheckedChangeListener { _, checked ->
@@ -193,7 +224,17 @@ class HomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             }
         }
         
-        android.util.Log.d("HomeActivity", "Voice alert state restored: $isEnabled")
+        android.util.Log.d("HomeActivity", "Voice alert state restored: $actualState (service running: $isServiceRunning)")
+    }
+    
+    private fun isServiceRunning(serviceClass: Class<*>): Boolean {
+        val manager = getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager
+        for (service in manager.getRunningServices(Int.MAX_VALUE)) {
+            if (serviceClass.name == service.service.className) {
+                return true
+            }
+        }
+        return false
     }
     
     private fun stopVoiceService() {
@@ -275,8 +316,6 @@ class HomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                     val userName = userProfile["name"] ?: "User"
                     val userEmail = userProfile["email"] ?: ""
                     val wakeWord = userProfile["wake_word"] ?: "help me"
-
-                    binding.userNameText.text = "Welcome back, $userName"
 
                     // Navigation drawer removed - using bottom nav now
                     // val headerView = binding.navigationView.getHeaderView(0)

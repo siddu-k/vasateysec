@@ -3,12 +3,14 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/deep_navy">
+    android:background="@color/background_dark">
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true">
+        android:layout_marginBottom="80dp"
+        android:fillViewport="true"
+        android:clipToPadding="false">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -18,70 +20,29 @@
             <!-- Gradient Header -->
             <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="220dp"
-                android:background="@drawable/gradient_header">
+                android:layout_height="80dp"
+                android:background="@drawable/gradient_header_golden">
 
-                <!-- Back Button & Title -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="20dp"
-                    android:gravity="center_vertical">
+                <ImageView
+                    android:id="@+id/backButton"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_gravity="start|center_vertical"
+                    android:layout_marginStart="16dp"
+                    android:src="@drawable/ic_back"
+                    android:tint="@color/golden"
+                    android:padding="8dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Back" />
 
-                    <ImageView
-                        android:id="@+id/backButton"
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
-                        android:src="@drawable/ic_back"
-                        android:tint="@color/text_primary"
-                        android:padding="8dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:contentDescription="Back" />
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Profile"
-                        android:textColor="@color/text_primary"
-                        android:textSize="24sp"
-                        android:textStyle="bold"
-                        android:layout_marginStart="8dp"
-                        android:fontFamily="sans-serif-medium" />
-                </LinearLayout>
-
-                <!-- Center Content -->
-                <LinearLayout
-                    android:layout_width="match_parent"
+                <TextView
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
-                    android:orientation="vertical"
-                    android:gravity="center"
-                    android:padding="24dp">
-
-                    <!-- Profile Avatar -->
-                    <FrameLayout
-                        android:layout_width="100dp"
-                        android:layout_height="100dp"
-                        android:background="@drawable/bg_sos_button">
-
-                        <ImageView
-                            android:layout_width="60dp"
-                            android:layout_height="60dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_profile"
-                            android:tint="@color/text_primary" />
-                    </FrameLayout>
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Edit Your Profile"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="14sp"
-                        android:layout_marginTop="12dp" />
-                </LinearLayout>
+                    android:text="Profile"
+                    android:textColor="@color/text_primary"
+                    android:textSize="24sp"
+                    android:textStyle="bold" />
             </FrameLayout>
 
             <!-- Content -->

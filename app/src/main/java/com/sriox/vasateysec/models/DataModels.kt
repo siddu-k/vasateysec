@@ -70,3 +70,14 @@ data class Notification(
     val is_self_alert: Boolean = false,
     val status: String = "pending"
 )
+
+@Serializable
+data class LiveLocation(
+    val id: String? = null,
+    val user_id: String,
+    val latitude: Double,
+    val longitude: Double,
+    val accuracy: Float? = null,
+    val updated_at: String? = null,
+    val created_at: String? = null
+)

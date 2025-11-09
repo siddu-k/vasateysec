@@ -2,7 +2,7 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/design_default_color_primary"
+    android:background="@color/background_dark"
     android:gravity="center">
 
     <LinearLayout
@@ -12,27 +12,26 @@
         android:gravity="center"
         android:orientation="vertical">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Vasatey"
-            android:textColor="@android:color/white"
-            android:textSize="48sp"
-            android:textStyle="bold" />
+        <ImageView
+            android:layout_width="240dp"
+            android:layout_height="240dp"
+            android:src="@drawable/logo"
+            android:contentDescription="Satey Logo" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Security App"
-            android:textColor="@android:color/white"
-            android:textSize="18sp" />
+            android:layout_marginTop="16dp"
+            android:text="Safety Guardian"
+            android:textColor="@color/golden"
+            android:textSize="14sp"
+            android:letterSpacing="0.1" />
 
         <ProgressBar
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="32dp"
-            android:indeterminateTint="@android:color/white" />
+            android:indeterminateTint="@color/golden" />
 
     </LinearLayout>
 

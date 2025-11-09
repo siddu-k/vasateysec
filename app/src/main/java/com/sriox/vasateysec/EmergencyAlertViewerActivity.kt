@@ -172,6 +172,9 @@ class EmergencyAlertViewerActivity : AppCompatActivity(), OnMapReadyCallback {
     override fun onMapReady(map: GoogleMap) {
         Log.d("EmergencyViewer", "Map ready")
         googleMap = map
+        
+        // Set satellite map type
+        googleMap?.mapType = GoogleMap.MAP_TYPE_SATELLITE
 
         if (latitude != null && longitude != null) {
             Log.d("EmergencyViewer", "Setting map location: $latitude, $longitude")

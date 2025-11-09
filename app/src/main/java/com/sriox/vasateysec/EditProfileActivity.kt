@@ -55,7 +55,7 @@ class EditProfileActivity : AppCompatActivity() {
     private fun setupBottomNavigation() {
         val navGuardians = findViewById<android.widget.LinearLayout>(R.id.navGuardians)
         val navHistory = findViewById<android.widget.LinearLayout>(R.id.navHistory)
-        val sosButton = findViewById<com.google.android.material.floatingactionbutton.FloatingActionButton>(R.id.sosButton)
+        val sosButton = findViewById<com.google.android.material.card.MaterialCardView>(R.id.sosButton)
         val navGhistory = findViewById<android.widget.LinearLayout>(R.id.navGhistory)
         val navProfile = findViewById<android.widget.LinearLayout>(R.id.navProfile)
         

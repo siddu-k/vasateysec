@@ -11,7 +11,10 @@
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true">
+        android:layout_marginBottom="80dp"
+        android:fillViewport="true"
+        android:clipToPadding="false"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -21,7 +24,7 @@
             <!-- Gradient Header with Illustration -->
             <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="280dp"
+                android:layout_height="180dp"
                 android:background="@drawable/gradient_header">
 
                 <!-- Top Bar -->
@@ -90,7 +93,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="20dp"
-                android:paddingBottom="100dp">
+                android:paddingBottom="24dp">
 
                 <!-- Voice Alert Card -->
                 <com.google.android.material.card.MaterialCardView

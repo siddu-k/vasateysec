@@ -241,6 +241,21 @@
                         app:iconGravity="textStart" />
                 </LinearLayout>
 
+                <!-- Confirm Alert Button -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/confirmAlertButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="64dp"
+                    android:text="✅ Confirm Alert"
+                    android:textSize="16sp"
+                    android:textColor="@color/text_primary"
+                    android:layout_marginBottom="16dp"
+                    app:backgroundTint="#4CAF50"
+                    app:cornerRadius="20dp"
+                    app:icon="@android:drawable/ic_menu_send"
+                    app:iconTint="@color/text_primary"
+                    app:iconGravity="textStart" />
+
                 <!-- Location Card -->
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"

@@ -322,7 +322,8 @@ object AlertManager {
                     latitude = latitude,
                     longitude = longitude,
                     frontPhotoUrl = frontPhotoUrl,
-                    backPhotoUrl = backPhotoUrl
+                    backPhotoUrl = backPhotoUrl,
+                    alertIdForIntent = alertId
                 )
 
                 if (success) {
@@ -399,7 +400,8 @@ object AlertManager {
         latitude: Double?,
         longitude: Double?,
         frontPhotoUrl: String? = null,
-        backPhotoUrl: String? = null
+        backPhotoUrl: String? = null,
+        alertIdForIntent: String
     ): Boolean {
         return withContext(Dispatchers.IO) {
             try {
@@ -418,7 +420,8 @@ object AlertManager {
                         "lastKnownLatitude": ${latitude ?: "null"},
                         "lastKnownLongitude": ${longitude ?: "null"},
                         "frontPhotoUrl": ${if (frontPhotoUrl != null) "\"$frontPhotoUrl\"" else "null"},
-                        "backPhotoUrl": ${if (backPhotoUrl != null) "\"$backPhotoUrl\"" else "null"}
+                        "backPhotoUrl": ${if (backPhotoUrl != null) "\"$backPhotoUrl\"" else "null"},
+                        "alertId": "$alertIdForIntent"
                     }
                 """.trimIndent()
                 

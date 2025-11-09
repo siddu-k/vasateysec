@@ -37,10 +37,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Vasateysec">
         
-        <!-- Google Maps API Key -->
-        <meta-data
-            android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyC-SN86E7GkvQ5La6AlxQpBf2uBGEEQa_Y" />
         <activity
             android:name=".SplashActivity"
             android:exported="true"
@@ -113,6 +109,24 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <!-- Alert Confirmation Activity -->
+        <activity
+            android:name=".AlertConfirmationActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:excludeFromRecents="false" />
+
+        <!-- My Alerts Activity -->
+        <activity
+            android:name=".MyAlertsActivity"
+            android:exported="false" />
+
+        <!-- Alert Detail Activity -->
+        <activity
+            android:name=".AlertDetailActivity"
+            android:exported="false" />
 
         <service
             android:name=".VoskWakeWordService"

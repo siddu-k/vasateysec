@@ -128,6 +128,11 @@ class HomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             startActivity(Intent(this, AlertHistoryActivity::class.java))
         }
         
+        // My Alerts Card
+        binding.myAlertsCard.setOnClickListener {
+            startActivity(Intent(this, MyAlertsActivity::class.java))
+        }
+        
         // Settings Card
         binding.settingsCard.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))

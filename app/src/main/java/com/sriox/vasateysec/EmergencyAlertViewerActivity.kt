@@ -5,7 +5,9 @@ import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
@@ -14,6 +16,10 @@ import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 import com.sriox.vasateysec.databinding.ActivityHelpRequestBinding
+import com.sriox.vasateysec.utils.AlertConfirmationManager
+import io.github.jan.supabase.gotrue.auth
+import io.github.jan.supabase.postgrest.from
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -28,6 +34,7 @@ class EmergencyAlertViewerActivity : AppCompatActivity(), OnMapReadyCallback {
     private var latitude: Double? = null
     private var longitude: Double? = null
     private var phoneNumber: String? = null
+    private var alertId: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,15 +47,35 @@ class EmergencyAlertViewerActivity : AppCompatActivity(), OnMapReadyCallback {
         Log.d("EmergencyViewer", "Intent flags: ${intent.flags}")
         Log.d("EmergencyViewer", "========================================")
         
+        // Restore alertId from savedInstanceState if available
+        if (savedInstanceState != null) {
+            alertId = savedInstanceState.getString("alertId")
+            Log.d("EmergencyViewer", "Restored alertId from savedInstanceState: $alertId")
+        }
+        
         // Load alert data directly - no login check
         setupUI()
     }
     
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString("alertId", alertId)
+        Log.d("EmergencyViewer", "Saved alertId to savedInstanceState: $alertId")
+    }
+    
     private fun setupUI() {
-        // Get data from intent
+        // Get data from intent (only if alertId not already set from savedInstanceState)
         val fullName = intent.getStringExtra("fullName") ?: "Unknown"
         val email = intent.getStringExtra("email") ?: "Unknown"
         phoneNumber = intent.getStringExtra("phoneNumber") ?: ""
+        
+        // Only update alertId from intent if it's not already set
+        if (alertId.isNullOrEmpty()) {
+            alertId = intent.getStringExtra("alertId") ?: ""
+            Log.d("EmergencyViewer", "Got alertId from intent: '$alertId'")
+        } else {
+            Log.d("EmergencyViewer", "Using existing alertId: '$alertId'")
+        }
         
         // Get location as strings and convert to Double
         val latStr = intent.getStringExtra("latitude") ?: ""
@@ -59,7 +86,7 @@ class EmergencyAlertViewerActivity : AppCompatActivity(), OnMapReadyCallback {
         
         val timestamp = intent.getStringExtra("timestamp") ?: ""
         
-        Log.d("EmergencyViewer", "Alert data: name=$fullName, lat=$latStr, lon=$lonStr")
+        Log.d("EmergencyViewer", "Alert data: name=$fullName, alertId=$alertId, lat=$latStr, lon=$lonStr")
 
         // Set data to views
         binding.userName.text = fullName
@@ -120,6 +147,18 @@ class EmergencyAlertViewerActivity : AppCompatActivity(), OnMapReadyCallback {
                     startActivity(browserIntent)
                 }
             }
+        }
+
+        // Confirm Alert Button - show only if we have alertId
+        if (!alertId.isNullOrEmpty()) {
+            binding.confirmAlertButton.visibility = View.VISIBLE
+            binding.confirmAlertButton.setOnClickListener {
+                confirmAlert()
+            }
+            Log.d("EmergencyViewer", "Confirm button enabled with alertId: $alertId")
+        } else {
+            binding.confirmAlertButton.visibility = View.GONE
+            Log.w("EmergencyViewer", "Confirm button hidden - no alertId available")
         }
         
         // Load emergency photos if available
@@ -203,6 +242,65 @@ class EmergencyAlertViewerActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
     
+    private fun confirmAlert() {
+        Log.d("EmergencyViewer", "Confirm Alert button clicked")
+        Log.d("EmergencyViewer", "Current alertId value: '$alertId'")
+        Log.d("EmergencyViewer", "Intent extras: ${intent.extras?.keySet()?.joinToString()}")
+
+        if (alertId.isNullOrEmpty()) {
+            Toast.makeText(this, "Alert ID not found. Please reopen the alert from notification.", Toast.LENGTH_LONG).show()
+            Log.e("EmergencyViewer", "Alert ID is null or empty!")
+            return
+        }
+
+        // Check if user is logged in
+        val currentUser = SupabaseClient.client.auth.currentUserOrNull()
+        if (currentUser == null) {
+            Toast.makeText(this, "Please log in to confirm alerts", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        lifecycleScope.launch {
+            try {
+                binding.confirmAlertButton.isEnabled = false
+                binding.confirmAlertButton.text = "Confirming..."
+
+                // Get guardian email from current user session
+                val guardianEmail = currentUser.email ?: ""
+                
+                if (guardianEmail.isEmpty()) {
+                    Toast.makeText(this@EmergencyAlertViewerActivity, "Could not get your email", Toast.LENGTH_SHORT).show()
+                    binding.confirmAlertButton.isEnabled = true
+                    binding.confirmAlertButton.text = "✅ Confirm Alert"
+                    return@launch
+                }
+
+                val result = AlertConfirmationManager.confirmAlert(
+                    context = this@EmergencyAlertViewerActivity,
+                    alertId = alertId!!,
+                    guardianEmail = guardianEmail,
+                    guardianUserId = currentUser.id
+                )
+
+                result.onSuccess { message ->
+                    Toast.makeText(this@EmergencyAlertViewerActivity, message, Toast.LENGTH_LONG).show()
+                    binding.confirmAlertButton.text = "✅ Confirmed"
+                    binding.confirmAlertButton.isEnabled = false
+                }.onFailure { error ->
+                    Toast.makeText(this@EmergencyAlertViewerActivity, "Error: ${error.message}", Toast.LENGTH_LONG).show()
+                    binding.confirmAlertButton.isEnabled = true
+                    binding.confirmAlertButton.text = "✅ Confirm Alert"
+                }
+
+            } catch (e: Exception) {
+                Log.e("EmergencyViewer", "Error confirming alert", e)
+                Toast.makeText(this@EmergencyAlertViewerActivity, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                binding.confirmAlertButton.isEnabled = true
+                binding.confirmAlertButton.text = "✅ Confirm Alert"
+            }
+        }
+    }
+
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         // Just finish this activity

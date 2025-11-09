@@ -67,6 +67,31 @@ class VasateyFCMService : FirebaseMessagingService() {
     }
 
     private fun handleDataMessage(data: Map<String, String>) {
+        val messageType = data["type"] ?: "alert"
+        
+        // Handle location requests separately
+        if (messageType == "location_request") {
+            return // Already handled in onMessageReceived
+        }
+        
+        // Handle alert confirmation notifications
+        if (messageType == "alert_confirmation") {
+            handleAlertConfirmation(data)
+            return
+        }
+        
+        // Handle alert cancellation notifications
+        if (messageType == "alert_cancelled") {
+            handleAlertCancellation(data)
+            return
+        }
+        
+        // Handle alert NOT cancelled (expired) notifications
+        if (messageType == "alert_not_cancelled") {
+            handleAlertNotCancelled(data)
+            return
+        }
+        
         val title = data["title"] ?: "Emergency Alert"
         val body = data["body"] ?: "Someone needs help"
         val fullName = data["fullName"] ?: ""
@@ -75,6 +100,16 @@ class VasateyFCMService : FirebaseMessagingService() {
         // Backend may send 'lastKnownLatitude'/'lastKnownLongitude' OR 'latitude'/'longitude'
         val latitudeStr = data["lastKnownLatitude"] ?: data["latitude"] ?: ""
         val longitudeStr = data["lastKnownLongitude"] ?: data["longitude"] ?: ""
+        val alertId = data["alertId"] ?: ""
+        
+        Log.d(TAG, "========================================")
+        Log.d(TAG, "📥 FCM DATA RECEIVED:")
+        Log.d(TAG, "alertId: '$alertId'")
+        Log.d(TAG, "All keys: ${data.keys.joinToString()}")
+        data.forEach { (key, value) ->
+            Log.d(TAG, "  $key = $value")
+        }
+        Log.d(TAG, "========================================")
         
         Log.d(TAG, "Raw location data from FCM: lastKnownLatitude=${data["lastKnownLatitude"]}, latitude=${data["latitude"]}")
         Log.d(TAG, "Parsed location strings: latitudeStr='$latitudeStr', longitudeStr='$longitudeStr'")
@@ -85,7 +120,7 @@ class VasateyFCMService : FirebaseMessagingService() {
         val frontPhotoUrl = data["frontPhotoUrl"] ?: ""
         val backPhotoUrl = data["backPhotoUrl"] ?: ""
         
-        Log.d(TAG, "Notification data: lat=$latitudeStr, lon=$longitudeStr, isSelf=$isSelfAlert")
+        Log.d(TAG, "Notification data: alertId=$alertId, lat=$latitudeStr, lon=$longitudeStr, isSelf=$isSelfAlert")
         Log.d(TAG, "Photo URLs: front=$frontPhotoUrl, back=$backPhotoUrl")
         Log.d(TAG, "All FCM data keys: ${data.keys}")
 
@@ -110,6 +145,7 @@ class VasateyFCMService : FirebaseMessagingService() {
             putExtra("timestamp", timestamp)
             putExtra("frontPhotoUrl", frontPhotoUrl)
             putExtra("backPhotoUrl", backPhotoUrl)
+            putExtra("alertId", alertId)
             putExtra("fromNotification", true)
         }
         
@@ -171,6 +207,96 @@ class VasateyFCMService : FirebaseMessagingService() {
         notificationManager.notify(System.currentTimeMillis().toInt(), notification)
         
         Log.d(TAG, "Rich notification displayed with full alert details")
+    }
+    
+    private fun handleAlertConfirmation(data: Map<String, String>) {
+        val title = data["title"] ?: "⚠️ Alert Confirmation"
+        val body = data["body"] ?: "Guardian confirmed your alert"
+        val alertId = data["alertId"] ?: ""
+        val guardianEmail = data["guardianEmail"] ?: ""
+        
+        Log.d(TAG, "📥 Handling CONFIRMATION notification for alert: $alertId")
+        
+        // Create intent to open AlertConfirmationActivity
+        val intent = Intent(this, com.sriox.vasateysec.AlertConfirmationActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            putExtra("alertId", alertId)
+            putExtra("guardianEmail", guardianEmail)
+        }
+        
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            System.currentTimeMillis().toInt(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .setVibrate(longArrayOf(0, 500, 200, 500))
+            .setSound(android.provider.Settings.System.DEFAULT_NOTIFICATION_URI)
+            .setColor(android.graphics.Color.parseColor("#FF9800"))
+            .build()
+        
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.notify(System.currentTimeMillis().toInt(), notification)
+        
+        Log.d(TAG, "✅ Confirmation notification displayed")
+    }
+    
+    private fun handleAlertCancellation(data: Map<String, String>) {
+        val title = data["title"] ?: "✅ Alert Cancelled"
+        val body = data["body"] ?: "The user has cancelled the alert"
+        
+        Log.d(TAG, "📥 Handling CANCELLATION notification")
+        
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setAutoCancel(true)
+            .setColor(android.graphics.Color.parseColor("#4CAF50"))
+            .build()
+        
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.notify(System.currentTimeMillis().toInt(), notification)
+        
+        Log.d(TAG, "✅ Cancellation notification displayed")
+    }
+    
+    private fun handleAlertNotCancelled(data: Map<String, String>) {
+        val title = data["title"] ?: "🚨 Alert Still Active"
+        val body = data["body"] ?: "User did not cancel. This is a real emergency!"
+        
+        Log.d(TAG, "📥 Handling NOT CANCELLED notification")
+        
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setAutoCancel(true)
+            .setVibrate(longArrayOf(0, 500, 200, 500, 200, 500))
+            .setSound(android.provider.Settings.System.DEFAULT_NOTIFICATION_URI)
+            .setColor(android.graphics.Color.RED)
+            .build()
+        
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.notify(System.currentTimeMillis().toInt(), notification)
+        
+        Log.d(TAG, "✅ NOT CANCELLED notification displayed")
     }
 
     private fun createNotificationChannel() {

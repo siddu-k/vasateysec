@@ -41,9 +41,10 @@ class EditProfileActivity : AppCompatActivity() {
             val name = binding.nameInput.text.toString().trim()
             val phone = binding.phoneInput.text.toString().trim()
             val wakeWord = binding.wakeWordInput.text.toString().trim()
+            val cancelPassword = binding.cancelPasswordInput.text.toString().trim()
 
             if (validateInputs(name, phone, wakeWord)) {
-                updateProfile(name, phone, wakeWord)
+                updateProfile(name, phone, wakeWord, cancelPassword)
             }
         }
         
@@ -118,6 +119,7 @@ class EditProfileActivity : AppCompatActivity() {
                 binding.emailInput.setText(userProfile["email"])
                 binding.phoneInput.setText(userProfile["phone"])
                 binding.wakeWordInput.setText(userProfile["wake_word"] ?: "help me")
+                binding.cancelPasswordInput.setText(userProfile["cancel_password"] ?: "")
 
             } catch (e: Exception) {
                 Toast.makeText(this@EditProfileActivity, "Failed to load profile", Toast.LENGTH_SHORT).show()
@@ -151,7 +153,7 @@ class EditProfileActivity : AppCompatActivity() {
         return true
     }
 
-    private fun updateProfile(name: String, phone: String, wakeWord: String) {
+    private fun updateProfile(name: String, phone: String, wakeWord: String, cancelPassword: String) {
         // binding.progressBar.visibility = View.VISIBLE // Removed from new layout
         binding.saveButton.isEnabled = false
 
@@ -163,6 +165,9 @@ class EditProfileActivity : AppCompatActivity() {
                     set("name", name)
                     set("phone", phone)
                     set("wake_word", wakeWord.lowercase())
+                    if (cancelPassword.isNotEmpty()) {
+                        set("cancel_password", cancelPassword)
+                    }
                 }) {
                     filter {
                         eq("id", userId!!)

@@ -168,6 +168,7 @@
                             android:id="@+id/wakeWordInputLayout"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
+                            android:layout_marginBottom="16dp"
                             android:hint="Wake Word"
                             android:textColorHint="@color/text_secondary"
                             app:boxBackgroundColor="@color/card_elevated"
@@ -188,6 +189,36 @@
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:inputType="text"
+                                android:textColor="@color/text_primary"
+                                android:textSize="16sp" />
+                        </com.google.android.material.textfield.TextInputLayout>
+
+                        <!-- Cancel Password Input -->
+                        <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/cancelPasswordInputLayout"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:hint="Cancel Password"
+                            android:textColorHint="@color/text_secondary"
+                            app:boxBackgroundColor="@color/card_elevated"
+                            app:boxCornerRadiusTopStart="16dp"
+                            app:boxCornerRadiusTopEnd="16dp"
+                            app:boxCornerRadiusBottomStart="16dp"
+                            app:boxCornerRadiusBottomEnd="16dp"
+                            app:hintTextColor="@color/golden"
+                            app:boxStrokeColor="@color/golden"
+                            app:startIconDrawable="@android:drawable/ic_lock_lock"
+                            app:startIconTint="@color/golden"
+                            app:endIconMode="password_toggle"
+                            app:helperText="Use this password to cancel false alarm alerts"
+                            app:helperTextTextColor="@color/text_tertiary"
+                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+                            <com.google.android.material.textfield.TextInputEditText
+                                android:id="@+id/cancelPasswordInput"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:inputType="textPassword"
                                 android:textColor="@color/text_primary"
                                 android:textSize="16sp" />
                         </com.google.android.material.textfield.TextInputLayout>

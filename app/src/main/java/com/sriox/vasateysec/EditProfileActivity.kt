@@ -6,9 +6,12 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.sriox.vasateysec.databinding.ActivityEditProfileBinding
+import com.sriox.vasateysec.models.UserProfile
 import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 class EditProfileActivity : AppCompatActivity() {
 
@@ -25,7 +28,7 @@ class EditProfileActivity : AppCompatActivity() {
 
         setupBottomNavigation()
         loadProfile()
-        
+
         // Highlight Profile nav item
         com.sriox.vasateysec.utils.BottomNavHelper.highlightActiveItem(
             this,
@@ -47,19 +50,19 @@ class EditProfileActivity : AppCompatActivity() {
                 updateProfile(name, phone, wakeWord, cancelPassword)
             }
         }
-        
+
         binding.logoutButton.setOnClickListener {
             logout()
         }
     }
-    
+
     private fun setupBottomNavigation() {
         val navGuardians = findViewById<android.widget.LinearLayout>(R.id.navGuardians)
         val navHistory = findViewById<android.widget.LinearLayout>(R.id.navHistory)
         val sosButton = findViewById<com.google.android.material.card.MaterialCardView>(R.id.sosButton)
         val navGhistory = findViewById<android.widget.LinearLayout>(R.id.navGhistory)
         val navProfile = findViewById<android.widget.LinearLayout>(R.id.navProfile)
-        
+
         navGuardians?.setOnClickListener {
             startActivity(android.content.Intent(this, AddGuardianActivity::class.java))
         }
@@ -74,16 +77,16 @@ class EditProfileActivity : AppCompatActivity() {
         }
         navProfile?.setOnClickListener { /* Already here */ }
     }
-    
+
     private fun logout() {
         lifecycleScope.launch {
             try {
                 // Sign out from Supabase
                 SupabaseClient.client.auth.signOut()
-                
+
                 // Clear local session
                 com.sriox.vasateysec.utils.SessionManager.clearSession()
-                
+
                 // Redirect to login
                 val intent = android.content.Intent(this@EditProfileActivity, LoginActivity::class.java)
                 intent.flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -106,23 +109,46 @@ class EditProfileActivity : AppCompatActivity() {
                 }
 
                 userId = currentUser.id
+                android.util.Log.d("EditProfile", "Loading profile for user ID: ${currentUser.id}")
 
-                val userProfile = SupabaseClient.client.from("users")
-                    .select {
-                        filter {
-                            eq("id", currentUser.id)
+                val userProfile = try {
+                    SupabaseClient.client.from("users")
+                        .select {
+                            filter {
+                                eq("id", currentUser.id)
+                            }
                         }
-                    }
-                    .decodeSingle<Map<String, String>>()
+                        .decodeSingle<UserProfile>()
+                } catch (e: Exception) {
+                    android.util.Log.e("EditProfile", "Error loading profile: ${e.message}", e)
+                    Toast.makeText(this@EditProfileActivity, "Error loading profile: ${e.message}", Toast.LENGTH_LONG).show()
+                    // Create a default profile as a fallback
+                    UserProfile(
+                        id = currentUser.id,
+                        name = currentUser.email?.substringBefore("@") ?: "User",
+                        email = currentUser.email ?: "",
+                        phone = "",
+                        wake_word = "help me",
+                        cancel_password = ""
+                    )
+                }
 
-                binding.nameInput.setText(userProfile["name"])
-                binding.emailInput.setText(userProfile["email"])
-                binding.phoneInput.setText(userProfile["phone"])
-                binding.wakeWordInput.setText(userProfile["wake_word"] ?: "help me")
-                binding.cancelPasswordInput.setText(userProfile["cancel_password"] ?: "")
+                // Log the entire profile data for debugging
+                android.util.Log.d("EditProfile", "Profile data loaded: $userProfile")
+                android.util.Log.d("EditProfile", "Phone value: '${userProfile.phone}'")
+                android.util.Log.d("EditProfile", "Name: '${userProfile.name}'")
+                android.util.Log.d("EditProfile", "Email: '${userProfile.email}'")
+                android.util.Log.d("EditProfile", "Wake word: '${userProfile.wake_word}'")
+
+                binding.nameInput.setText(userProfile.name ?: "")
+                binding.emailInput.setText(userProfile.email ?: "")
+                binding.phoneInput.setText(userProfile.phone ?: "")
+                binding.wakeWordInput.setText(userProfile.wake_word ?: "help me")
+                binding.cancelPasswordInput.setText(userProfile.cancel_password ?: "")
 
             } catch (e: Exception) {
-                Toast.makeText(this@EditProfileActivity, "Failed to load profile", Toast.LENGTH_SHORT).show()
+                android.util.Log.e("EditProfile", "Failed to load profile", e)
+                Toast.makeText(this@EditProfileActivity, "Failed to load profile: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -173,12 +199,12 @@ class EditProfileActivity : AppCompatActivity() {
                         eq("id", userId!!)
                     }
                 }
-                
+
                 // Save to SharedPreferences for quick access
                 getSharedPreferences("vasatey_prefs", MODE_PRIVATE).edit()
                     .putString("wake_word", wakeWord.lowercase())
                     .apply()
-                
+
                 // Restart VoskWakeWordService to use the new wake word
                 try {
                     val serviceIntent = android.content.Intent(this@EditProfileActivity, VoskWakeWordService::class.java)
@@ -186,12 +212,12 @@ class EditProfileActivity : AppCompatActivity() {
                     android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                         startService(serviceIntent) // Start with new wake word
                     }, 500) // Wait 500ms before restarting
-                    
+
                     Toast.makeText(this@EditProfileActivity, "Profile updated! Wake word changed to: \"$wakeWord\"\nService restarting...", Toast.LENGTH_LONG).show()
                 } catch (e: Exception) {
                     Toast.makeText(this@EditProfileActivity, "Profile updated! Please restart the app to use new wake word.", Toast.LENGTH_LONG).show()
                 }
-                
+
                 finish()
 
             } catch (e: Exception) {

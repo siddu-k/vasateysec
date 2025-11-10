@@ -16,6 +16,7 @@ import androidx.core.view.GravityCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.navigation.NavigationView
 import com.sriox.vasateysec.databinding.ActivityHomeBinding
+import com.sriox.vasateysec.models.UserProfile
 import com.sriox.vasateysec.utils.FCMTokenManager
 import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.postgrest.from
@@ -310,17 +311,27 @@ class HomeActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             try {
                 val currentUser = SupabaseClient.client.auth.currentUserOrNull()
                 if (currentUser != null) {
-                    val userProfile = SupabaseClient.client.from("users")
-                        .select {
-                            filter {
-                                eq("id", currentUser.id)
+                    val userProfile = try {
+                        SupabaseClient.client.from("users")
+                            .select {
+                                filter {
+                                    eq("id", currentUser.id)
+                                }
                             }
-                        }
-                        .decodeSingle<Map<String, String>>()
+                            .decodeSingle<UserProfile>()
+                    } catch (e: Exception) {
+                        android.util.Log.e("HomeActivity", "Error decoding user profile: ${e.message}")
+                        // Create a default profile with available data
+                        UserProfile(
+                            id = currentUser.id,
+                            name = currentUser.email?.substringBefore("@") ?: "User",
+                            email = currentUser.email ?: ""
+                        )
+                    }
 
-                    val userName = userProfile["name"] ?: "User"
-                    val userEmail = userProfile["email"] ?: ""
-                    val wakeWord = userProfile["wake_word"] ?: "help me"
+                    val userName = userProfile.name ?: "User"
+                    val userEmail = userProfile.email ?: ""
+                    val wakeWord = (userProfile as? Map<*, *>)?.get("wake_word") as? String ?: "help me"
 
                     // Navigation drawer removed - using bottom nav now
                     // val headerView = binding.navigationView.getHeaderView(0)

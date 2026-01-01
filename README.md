@@ -294,10 +294,10 @@ This project is part of a portfolio demonstrating mobile development capabilitie
 
 ## 🔗 Related Documentation
 
-- [Setup Guide](SETUP_GUIDE.md)
-- [Implementation Details](README_IMPLEMENTATION.md)
-- [Alert System Documentation](ALERT_SYSTEM_IMPLEMENTATION.md)
-- [Live Location Guide](COMPLETE_LIVE_LOCATION_GUIDE.md)
+- [Setup Guide](SETUP_GUIDE.md) - Step-by-step instructions for configuring and running the app
+- [Implementation Details](README_IMPLEMENTATION.md) - Detailed implementation guide and current status
+- [Alert System Documentation](ALERT_SYSTEM_IMPLEMENTATION.md) - Complete alert system architecture and flow
+- [Live Location Guide](COMPLETE_LIVE_LOCATION_GUIDE.md) - Real-time location tracking implementation guide
 
 ---
 

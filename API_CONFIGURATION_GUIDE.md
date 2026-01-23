@@ -115,21 +115,23 @@ In continuous integration environments:
 
 ## Migration from Hardcoded Values
 
-If you were using the old hardcoded values, your `local.properties` should contain:
+**IMPORTANT**: The values below are examples only and may be outdated. Contact your team lead or check your project documentation for current credentials.
+
+If you were using the old hardcoded values, your `local.properties` might look similar to this:
 
 ```properties
-# Your existing Supabase project
-SUPABASE_URL=https://acgsmcxmesvsftzugeik.supabase.co
-SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjZ3NtY3htZXN2c2Z0enVnZWlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyNzIzNTYsImV4cCI6MjA3Nzg0ODM1Nn0.EwiJajiscMqz1jHyyl-BDS4YIvc0nihBUn3m8pPUP1c
+# Example configuration (replace with your actual credentials)
+SUPABASE_URL=https://your-project-id.supabase.co
+SUPABASE_ANON_KEY=your-actual-anon-key-here
 
-# Your existing FCM endpoint
-FCM_ENDPOINT=https://vasatey-notify-msg.vercel.app/api/sendNotification
+# Example FCM endpoint (replace with your actual endpoint)
+FCM_ENDPOINT=https://your-notification-service.vercel.app/api/sendNotification
 
-# Your existing keystore (if doing release builds)
+# Example keystore configuration (if doing release builds)
 KEYSTORE_FILE=../vasateysec-release.jks
-KEYSTORE_PASSWORD=vasatey123
+KEYSTORE_PASSWORD=your-keystore-password
 KEY_ALIAS=vasateysec
-KEY_PASSWORD=vasatey123
+KEY_PASSWORD=your-key-password
 ```
 
-**Note:** These are example values from the codebase. Replace with your actual credentials.
+**Note:** Replace all example values with your actual credentials. Never copy credentials from documentation or commit messages.

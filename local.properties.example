@@ -1,0 +1,16 @@
+# This file contains example configuration for API keys and secrets
+# Copy this file to 'local.properties' and fill in your actual values
+# IMPORTANT: Never commit 'local.properties' to version control
+
+# Supabase Configuration
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-supabase-anon-key-here
+
+# FCM/Notification Service Configuration
+FCM_ENDPOINT=https://your-notification-service.vercel.app/api/sendNotification
+
+# Keystore Configuration (for release builds)
+KEYSTORE_FILE=../vasateysec-release.jks
+KEYSTORE_PASSWORD=your-keystore-password
+KEY_ALIAS=vasateysec
+KEY_PASSWORD=your-key-password

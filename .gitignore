@@ -13,3 +13,6 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# API keys and secrets (keep this at the end for clarity)
+local.properties

@@ -3,6 +3,7 @@ package com.sriox.vasateysec.utils
 import android.content.Context
 import android.util.Log
 import com.sriox.vasateysec.SupabaseClient
+import com.sriox.vasateysec.config.ApiConfig
 import com.sriox.vasateysec.models.AlertHistory
 import com.sriox.vasateysec.models.AlertRecipient
 import com.sriox.vasateysec.models.Guardian
@@ -436,7 +437,7 @@ object AlertManager {
                 )
                 
                 val request = okhttp3.Request.Builder()
-                    .url("https://vasatey-notify-msg.vercel.app/api/sendNotification")
+                    .url(ApiConfig.fcmEndpoint)
                     .addHeader("Content-Type", "application/json")
                     .post(requestBody)
                     .build()

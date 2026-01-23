@@ -3,6 +3,7 @@ package com.sriox.vasateysec.utils
 import android.content.Context
 import android.util.Log
 import com.sriox.vasateysec.SupabaseClient
+import com.sriox.vasateysec.config.ApiConfig
 import com.sriox.vasateysec.models.FCMToken
 import com.sriox.vasateysec.models.Guardian
 import com.sriox.vasateysec.models.LiveLocation
@@ -26,7 +27,6 @@ import org.json.JSONObject
 object LiveLocationHelper {
     
     private const val TAG = "LiveLocationHelper"
-    private const val FCM_ENDPOINT = "https://vasatey-notify-msg.vercel.app/api/sendNotification"
     
     /**
      * Handle incoming location request from guardian (called by FCM service)
@@ -192,15 +192,11 @@ object LiveLocationHelper {
         try {
             val client = OkHttpClient()
             
-            // Get Supabase config
-            val supabaseUrl = "https://acgsmcxmesvsftzugeik.supabase.co"
-            val supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjZ3NtY3htZXN2c2Z0enVnZWlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyNzIzNTYsImV4cCI6MjA3Nzg0ODM1Nn0.EwiJajiscMqz1jHyyl-BDS4YIvc0nihBUn3m8pPUP1c"
-            
             // Get current user's access token
             val currentUser = SupabaseClient.client.auth.currentSessionOrNull()
-            val accessToken = currentUser?.accessToken ?: supabaseAnonKey
+            val accessToken = currentUser?.accessToken ?: ApiConfig.supabaseAnonKey
             
-            val functionUrl = "$supabaseUrl/functions/v1/request-live-locations"
+            val functionUrl = "${ApiConfig.supabaseUrl}/functions/v1/request-live-locations"
             
             // Create JSON payload
             val json = JSONObject().apply {

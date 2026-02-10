@@ -5,6 +5,19 @@ plugins {
     kotlin("plugin.serialization") version "1.9.22"
 }
 
+// Load local.properties file
+val localProperties = java.util.Properties()
+val localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.inputStream().use { localProperties.load(it) }
+}
+
+// Helper function to get property or throw error
+fun getLocalProperty(key: String): String {
+    return localProperties.getProperty(key)
+        ?: throw GradleException("Property '$key' not found in local.properties. Please check local.properties.example for required properties.")
+}
+
 android {
     namespace = "com.sriox.vasateysec"
     compileSdk = 34
@@ -17,6 +30,11 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        // BuildConfig fields for API configuration
+        buildConfigField("String", "SUPABASE_URL", "\"${getLocalProperty("SUPABASE_URL")}\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"${getLocalProperty("SUPABASE_ANON_KEY")}\"")
+        buildConfigField("String", "FCM_ENDPOINT", "\"${getLocalProperty("FCM_ENDPOINT")}\"")
         
         // Disable ALL compression in APK
         packaging {
@@ -31,10 +49,10 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("../vasateysec-release.jks")
-            storePassword = "vasatey123"
-            keyAlias = "vasateysec"
-            keyPassword = "vasatey123"
+            storeFile = file(getLocalProperty("KEYSTORE_FILE"))
+            storePassword = getLocalProperty("KEYSTORE_PASSWORD")
+            keyAlias = getLocalProperty("KEY_ALIAS")
+            keyPassword = getLocalProperty("KEY_PASSWORD")
         }
     }
 
@@ -101,6 +119,7 @@ android {
     }
     buildFeatures {
         viewBinding = true
+        buildConfig = true  // Enable BuildConfig generation
     }
 }
 

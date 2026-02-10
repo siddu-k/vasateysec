@@ -3,6 +3,7 @@ package com.sriox.vasateysec.utils
 import android.content.Context
 import android.util.Log
 import com.sriox.vasateysec.SupabaseClient
+import com.sriox.vasateysec.config.ApiConfig
 import com.sriox.vasateysec.models.AlertConfirmation
 import com.sriox.vasateysec.models.AlertHistory
 import io.github.jan.supabase.gotrue.auth
@@ -44,8 +45,8 @@ object AlertConfirmationManager {
             val requestBody = jsonBody.toRequestBody(mediaType)
             
             val request = okhttp3.Request.Builder()
-                .url("https://acgsmcxmesvsftzugeik.supabase.co/functions/v1/send-confirmation-notification")
-                .addHeader("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjZ3NtY3htZXN2c2Z0enVnZWlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyNzIzNTYsImV4cCI6MjA3Nzg0ODM1Nn0.EwiJajiscMqz1jHyyl-BDS4YIvc0nihBUn3m8pPUP1c")
+                .url("${ApiConfig.supabaseUrl}/functions/v1/send-confirmation-notification")
+                .addHeader("Authorization", "Bearer ${ApiConfig.supabaseAnonKey}")
                 .addHeader("Content-Type", "application/json")
                 .post(requestBody)
                 .build()
@@ -254,8 +255,8 @@ object AlertConfirmationManager {
             val requestBody = jsonBody.toRequestBody(mediaType)
             
             val request = okhttp3.Request.Builder()
-                .url("https://acgsmcxmesvsftzugeik.supabase.co/functions/v1/send-expiry-notification")
-                .addHeader("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjZ3NtY3htZXN2c2Z0enVnZWlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyNzIzNTYsImV4cCI6MjA3Nzg0ODM1Nn0.EwiJajiscMqz1jHyyl-BDS4YIvc0nihBUn3m8pPUP1c")
+                .url("${ApiConfig.supabaseUrl}/functions/v1/send-expiry-notification")
+                .addHeader("Authorization", "Bearer ${ApiConfig.supabaseAnonKey}")
                 .addHeader("Content-Type", "application/json")
                 .post(requestBody)
                 .build()
@@ -292,8 +293,8 @@ object AlertConfirmationManager {
             val requestBody = jsonBody.toRequestBody(mediaType)
             
             val request = okhttp3.Request.Builder()
-                .url("https://acgsmcxmesvsftzugeik.supabase.co/functions/v1/send-cancellation-notification")
-                .addHeader("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjZ3NtY3htZXN2c2Z0enVnZWlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIyNzIzNTYsImV4cCI6MjA3Nzg0ODM1Nn0.EwiJajiscMqz1jHyyl-BDS4YIvc0nihBUn3m8pPUP1c")
+                .url("${ApiConfig.supabaseUrl}/functions/v1/send-cancellation-notification")
+                .addHeader("Authorization", "Bearer ${ApiConfig.supabaseAnonKey}")
                 .addHeader("Content-Type", "application/json")
                 .post(requestBody)
                 .build()
